@@ -23,9 +23,9 @@ Premise: Overreliance on AI presents different cognitive risks depending on the 
 
 ---
 
-## 2. Repo Screenshot / Demo Placeholder
+## 2. Application Interface
 
-![Prompt Classifier Obsidian Theme Placeholder](frontend/src/assets/hero.png)
+![Prompt Classifier Dashboard](frontend/src/assets/hero.png)
 
 ---
 
