@@ -30,7 +30,6 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
     """
     p = prompt.strip().lower()
     
-    # 1. Decision Making keywords
     decision_keywords = [
         r"\bshould i\b",
         r"\bdecide between\b",
@@ -50,7 +49,6 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
             reasoning="Classified heuristically as a decision-making task involving evaluating choices or weighing personal outcomes."
         )
 
-    # 2. Code Debugging keywords
     code_keywords = [
         r"\bdef\s+\w+\b",
         r"\bclass\s+\w+\b",
@@ -79,7 +77,6 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
             reasoning="Classified heuristically as code debugging due to code syntactical structures or programming keywords."
         )
 
-    # 3. Computation keywords
     comp_keywords = [
         r"\bsolve\b",
         r"\bcalculate\b",
@@ -101,7 +98,6 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
             reasoning="Classified heuristically as computation based on numerical values and math keywords/symbols."
         )
 
-    # 4. Factual Lookup keywords
     factual_keywords = [
         r"\bwhat is the capital\b",
         r"\bwhere is\b",
@@ -124,7 +120,6 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
             reasoning="Classified heuristically as a factual lookup based on factual query keywords."
         )
 
-    # 5. Divergent / Open-ended keywords
     divergent_keywords = [
         r"\bwrite a\b",
         r"\bwrite an\b",
@@ -156,8 +151,6 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
             reasoning="Classified heuristically as divergent/open-ended due to content creation or brainstorming keywords."
         )
 
-    # Default fallback: convergent/other or divergent?
-    # Let's say if it contains a question mark, it's convergent (other), else divergent (open-ended statement).
     if "?" in p:
         return PromptClassificationResult(
             classification="convergent",
@@ -179,7 +172,6 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
     Connects to OPENAI_BASE_URL (supporting OpenRouter, etc.) and uses CLASSIFIER_MODEL.
     """
     api_key = os.getenv("OPENAI_API_KEY")
-    # If the key is not set or contains the default template value, use fallback
     if not api_key or api_key.strip() == "" or api_key.startswith("your-") or api_key == "placeholder":
         logger.info("OPENAI_API_KEY is not set or contains placeholders. Falling back to local heuristic classifier.")
         return classify_heuristically(prompt)
@@ -187,13 +179,11 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
     base_url = os.getenv("OPENAI_BASE_URL")
     model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
 
-    # Configure client
     client_args = {"api_key": api_key}
     if base_url:
         client_args["base_url"] = base_url
     client = OpenAI(**client_args)
     
-    # Retry logic (up to 1 retry)
     last_error = None
     system_prompt = (
         "You are a prompt classifier that categorizes prompts according to J.P. Guilford's convergent/divergent theory.\n"
@@ -212,9 +202,6 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
 
     for attempt in range(2):
         try:
-            # We determine if we can use the structured .parse() helper.
-            # Structured Outputs helper (.parse) is only guaranteed to work with official OpenAI models.
-            # If a custom base URL (like OpenRouter) is configured, we request standard completion and parse it manually.
             is_openai_official = not base_url or "api.openai.com" in base_url
             
             if is_openai_official and model.startswith("gpt-"):
@@ -234,8 +221,6 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                 else:
                     raise ValueError("Parsed response is None")
             else:
-                # Custom endpoint or non-OpenAI model (e.g. OpenRouter / Nemotron)
-                # Request a JSON object response format
                 response = client.chat.completions.create(
                     model=model,
                     messages=[
@@ -248,7 +233,6 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                 if not content:
                     raise ValueError("Empty response content from LLM")
                 
-                # Parse and validate against Pydantic schema
                 import json
                 data = json.loads(content)
                 parsed = PromptClassificationResult(**data)
@@ -259,6 +243,4 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
             logger.warning(f"LLM classification attempt {attempt + 1} failed: {e}")
             last_error = e
             
-    # If both attempts failed, raise a ValueError with the error
     raise ValueError(f"LLM classification failed after retrying. Error: {last_error}")
-

@@ -15,7 +15,6 @@ interface StatsChartProps {
 }
 
 export const StatsChart: React.FC<StatsChartProps> = ({ history }) => {
-  // Aggregate data
   const counts = {
     factual_lookup: 0,
     computation: 0,

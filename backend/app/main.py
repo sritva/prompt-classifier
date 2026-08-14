@@ -15,20 +15,18 @@ load_dotenv()
 
 app = FastAPI(title="Prompt Classifier API")
 
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins for local dev
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Token Bucket Rate Limiting logic
 class TokenBucket:
     def __init__(self, capacity: int, refill_rate: float):
         self.capacity = capacity
-        self.refill_rate = refill_rate  # tokens per second
+        self.refill_rate = refill_rate
         self.tokens = capacity
         self.last_refill = time.time()
 
@@ -43,7 +41,6 @@ class TokenBucket:
             return True
         return False
 
-# IP to rate limiter bucket map
 classify_buckets = {}
 
 def rate_limit(request: Request):
@@ -62,7 +59,6 @@ def rate_limit(request: Request):
             detail="Rate limit exceeded. Try again in a few seconds."
         )
 
-# Pydantic Schemas for API
 class ClassifyRequest(BaseModel):
     prompt: str
     session_id: str
@@ -106,7 +102,6 @@ def build_session_summary(history) -> SessionSummary:
     conv_pct = round((convergent_count / total) * 100, 1)
     div_pct = round((divergent_count / total) * 100, 1)
     
-    # Calculate rolling overreliance
     overreliance_data = calculate_overreliance(history)
     
     return SessionSummary(
@@ -123,7 +118,6 @@ def classify(request: ClassifyRequest):
     Submits a user prompt for classification, records it in the database session,
     and returns the result with a rolling overreliance analysis score.
     """
-
     if not request.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
         
@@ -135,7 +129,6 @@ def classify(request: ClassifyRequest):
             detail=f"Classification error: {str(e)}"
         )
         
-    # Save prompt classification record to database
     record = session_store.add_prompt_record(
         session_id=request.session_id,
         prompt=request.prompt,
@@ -145,7 +138,6 @@ def classify(request: ClassifyRequest):
         reasoning=result.reasoning
     )
     
-    # Fetch full history of the session to build summary
     history = session_store.get_session_history(request.session_id)
     summary = build_session_summary(history)
     
@@ -165,9 +157,7 @@ def get_session(session_id: str):
     """
     Retrieves the complete history of prompts and classification summaries for a given session.
     """
-
     history = session_store.get_session_history(session_id)
-    # Check if session exists or return empty history with zero summary
     summary = build_session_summary(history)
     
     history_list = []
@@ -193,6 +183,5 @@ def delete_session(session_id: str):
     """
     Clears all recorded prompts and resets the cognitive scoring context for the session.
     """
-
     session_store.clear_session_history(session_id)
     return {"message": "Session history cleared successfully"}

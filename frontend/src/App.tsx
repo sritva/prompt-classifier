@@ -20,7 +20,6 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [dismissedWarning, setDismissedWarning] = useState<boolean>(false);
 
-  // Initialize session
   useEffect(() => {
     const id = getOrCreateSessionId();
     setSessionId(id);
@@ -55,7 +54,6 @@ export const App: React.FC = () => {
       setHistory((prev) => [...prev, result]);
       setSummary(result.session_summary);
       setPrompt("");
-      // Reset dismiss banner state if a new high/moderate signal occurs
       if (result.session_summary.overreliance_signal !== "none") {
         setDismissedWarning(false);
       }
@@ -84,12 +82,10 @@ export const App: React.FC = () => {
     }
   };
 
-  // Determine current glyph state
   const glyphState = latestResult
     ? latestResult.classification
     : "neutral";
 
-  // Check if warning banner should show
   const showWarning =
     summary &&
     (summary.overreliance_signal === "high" ||
@@ -98,7 +94,6 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-container">
-      {/* Header */}
       <header className="app-header" id="app-header">
         <div className="app-title-group">
           <h1 className="app-title">prompt classifier</h1>
@@ -107,7 +102,6 @@ export const App: React.FC = () => {
         <Glyph state={glyphState} />
       </header>
 
-      {/* Overreliance warning banner */}
       {showWarning && summary && (
         <section
           className="overreliance-banner"
@@ -134,14 +128,12 @@ export const App: React.FC = () => {
         </section>
       )}
 
-      {/* Error state */}
       {error && (
         <div className="error-banner" id="error-banner" aria-live="assertive">
           [ ERROR ]: {error}
         </div>
       )}
 
-      {/* Prompt input form */}
       <main>
         <form onSubmit={handleSubmit} className="prompt-form" id="prompt-form">
           <div className="input-wrapper">
@@ -167,7 +159,6 @@ export const App: React.FC = () => {
         </form>
       </main>
 
-      {/* Latest Result */}
       {latestResult && (
         <section className="result-card" id="latest-result">
           <div className="result-header">
@@ -189,7 +180,6 @@ export const App: React.FC = () => {
         </section>
       )}
 
-      {/* Session stats & visualization */}
       {summary && summary.total_prompts > 0 && (
         <section className="stats-box" id="session-stats">
           <h2 className="history-title">session profile</h2>
@@ -227,7 +217,6 @@ export const App: React.FC = () => {
         </section>
       )}
 
-      {/* History Feed */}
       {history.length > 0 && (
         <section className="history-section" id="history-section">
           <div className="history-header-row">
@@ -276,4 +265,3 @@ export const App: React.FC = () => {
 };
 
 export default App;
-
