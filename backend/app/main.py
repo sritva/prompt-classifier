@@ -119,6 +119,11 @@ def build_session_summary(history) -> SessionSummary:
 
 @app.post("/api/classify", response_model=ClassifyResponse, dependencies=[Depends(rate_limit)])
 def classify(request: ClassifyRequest):
+    """
+    Submits a user prompt for classification, records it in the database session,
+    and returns the result with a rolling overreliance analysis score.
+    """
+
     if not request.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
         
@@ -157,6 +162,10 @@ def classify(request: ClassifyRequest):
 
 @app.get("/api/session/{session_id}", response_model=SessionHistoryResponse)
 def get_session(session_id: str):
+    """
+    Retrieves the complete history of prompts and classification summaries for a given session.
+    """
+
     history = session_store.get_session_history(session_id)
     # Check if session exists or return empty history with zero summary
     summary = build_session_summary(history)
@@ -181,5 +190,9 @@ def get_session(session_id: str):
 
 @app.delete("/api/session/{session_id}")
 def delete_session(session_id: str):
+    """
+    Clears all recorded prompts and resets the cognitive scoring context for the session.
+    """
+
     session_store.clear_session_history(session_id)
     return {"message": "Session history cleared successfully"}
