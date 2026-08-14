@@ -175,9 +175,8 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
 
 def classify_prompt(prompt: str) -> PromptClassificationResult:
     """
-    Main entry point for prompt classification. Checks for OPENAI_API_KEY
-    and calls OpenAI GPT-4o-mini with structured outputs. If not configured,
-    uses the local regex heuristic.
+    Main entry point for prompt classification. Checks for OPENAI_API_KEY.
+    Connects to OPENAI_BASE_URL (supporting OpenRouter, etc.) and uses CLASSIFIER_MODEL.
     """
     api_key = os.getenv("OPENAI_API_KEY")
     # If the key is not set or contains the default template value, use fallback
@@ -185,42 +184,81 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
         logger.info("OPENAI_API_KEY is not set or contains placeholders. Falling back to local heuristic classifier.")
         return classify_heuristically(prompt)
 
-    # Call OpenAI with structured output
-    client = OpenAI(api_key=api_key)
+    base_url = os.getenv("OPENAI_BASE_URL")
+    model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
+
+    # Configure client
+    client_args = {"api_key": api_key}
+    if base_url:
+        client_args["base_url"] = base_url
+    client = OpenAI(**client_args)
     
     # Retry logic (up to 1 retry)
     last_error = None
+    system_prompt = (
+        "You are a prompt classifier that categorizes prompts according to J.P. Guilford's convergent/divergent theory.\n"
+        "Convergent: tasks with a single, verifiable, correct answer (e.g. math, factual lookups, debugging, choice decisions).\n"
+        "Divergent: open-ended tasks generating multiple options/possibilities (e.g. brainstorming, writing, creative design).\n"
+        "Provide the classification, a confidence score between 0.0 and 1.0, a single-sentence reasoning, and if convergent, a subtype ('factual_lookup', 'computation', 'code_debugging', 'decision_making', 'other').\n"
+        "If the prompt is divergent, the subtype MUST be null.\n"
+        "You MUST return your output as a valid JSON object matching this schema:\n"
+        "{\n"
+        '  "classification": "convergent" | "divergent",\n'
+        '  "confidence": float,\n'
+        '  "reasoning": "string",\n'
+        '  "subtype": "factual_lookup" | "computation" | "code_debugging" | "decision_making" | "other" | null\n'
+        "}"
+    )
+
     for attempt in range(2):
         try:
-            # We'll use structured outputs format
-            response = client.beta.chat.completions.parse(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a prompt classifier that categorizes prompts according to J.P. Guilford's convergent/divergent theory.\n"
-                            "Convergent: tasks with a single, verifiable, correct answer (e.g. math, factual lookups, debugging, choice decisions).\n"
-                            "Divergent: open-ended tasks generating multiple options/possibilities (e.g. brainstorming, writing, creative design).\n"
-                            "Provide the classification, a confidence score between 0.0 and 1.0, a single-sentence reasoning, and if convergent, a subtype ('factual_lookup', 'computation', 'code_debugging', 'decision_making', 'other').\n"
-                            "If the prompt is divergent, the subtype MUST be null."
-                        )
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                response_format=PromptClassificationResult
-            )
-            parsed = response.choices[0].message.parsed
-            if parsed:
-                # Validate that divergent has no subtype
-                if parsed.classification == "divergent" and parsed.subtype is not None:
+            # We determine if we can use the structured .parse() helper.
+            # Structured Outputs helper (.parse) is only guaranteed to work with official OpenAI models.
+            # If a custom base URL (like OpenRouter) is configured, we request standard completion and parse it manually.
+            is_openai_official = not base_url or "api.openai.com" in base_url
+            
+            if is_openai_official and model.startswith("gpt-"):
+                response = client.beta.chat.completions.parse(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format=PromptClassificationResult
+                )
+                parsed = response.choices[0].message.parsed
+                if parsed:
+                    if parsed.classification == "divergent":
+                        parsed.subtype = None
+                    return parsed
+                else:
+                    raise ValueError("Parsed response is None")
+            else:
+                # Custom endpoint or non-OpenAI model (e.g. OpenRouter / Nemotron)
+                # Request a JSON object response format
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={"type": "json_object"}
+                )
+                content = response.choices[0].message.content
+                if not content:
+                    raise ValueError("Empty response content from LLM")
+                
+                # Parse and validate against Pydantic schema
+                import json
+                data = json.loads(content)
+                parsed = PromptClassificationResult(**data)
+                if parsed.classification == "divergent":
                     parsed.subtype = None
                 return parsed
-            else:
-                raise ValueError("Parsed response is None")
         except Exception as e:
-            logger.warning(f"OpenAI classification attempt {attempt + 1} failed: {e}")
+            logger.warning(f"LLM classification attempt {attempt + 1} failed: {e}")
             last_error = e
             
     # If both attempts failed, raise a ValueError with the error
-    raise ValueError(f"OpenAI classification failed after retrying. Error: {last_error}")
+    raise ValueError(f"LLM classification failed after retrying. Error: {last_error}")
+

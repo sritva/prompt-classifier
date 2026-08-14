@@ -160,6 +160,39 @@ def test_api_classify_openai_success(mock_openai_class, client):
     assert data["session_summary"]["total_prompts"] == 1
     assert data["session_summary"]["convergent_percentage"] == 100.0
 
+@patch("app.classifier.OpenAI")
+def test_api_classify_custom_endpoint_success(mock_openai_class, client):
+    # Mock successful custom endpoint (OpenRouter) JSON-mode completion
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    
+    mock_choice = MagicMock()
+    # Return JSON matching the schema
+    mock_choice.message.content = '{"classification": "convergent", "confidence": 0.95, "reasoning": "Nemotron response.", "subtype": "computation"}'
+    
+    mock_response = MagicMock()
+    mock_response.choices = [mock_choice]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    with patch.dict(os.environ, {
+        "OPENAI_API_KEY": "sk-or-v1-some-key",
+        "OPENAI_BASE_URL": "https://openrouter.ai/api/v1",
+        "CLASSIFIER_MODEL": "nvidia/nemotron-3-super-120b-a12b:free"
+    }):
+        response = client.post(
+            "/api/classify",
+            json={"prompt": "Solve 2+2", "session_id": "test-custom-session"}
+        )
+        
+    assert response.status_code == 200
+    data = response.json()
+    assert data["classification"] == "convergent"
+    assert data["subtype"] == "computation"
+    assert data["confidence"] == 0.95
+    assert data["reasoning"] == "Nemotron response."
+    assert mock_client.chat.completions.create.call_count == 1
+
+
 def test_api_classify_fallback_success(client):
     # Explicitly verify fallback occurs when key is not set/placeholder
     with patch.dict(os.environ, {"OPENAI_API_KEY": "placeholder"}):
