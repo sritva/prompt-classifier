@@ -196,6 +196,3 @@ npm run test
 
 ---
 
-## 9. Findings
-
-*(User-facing section to document behavioral observations and learnings from utilizing the Prompt Classifier.)*
