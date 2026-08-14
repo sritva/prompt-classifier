@@ -1,4 +1,4 @@
-import { ClassifyResponse, SessionHistoryResponse } from "./types";
+import type { ClassifyResponse, SessionHistoryResponse } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 

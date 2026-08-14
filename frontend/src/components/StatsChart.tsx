@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { PromptRecord } from "../types";
+import type { PromptRecord } from "../types";
 
 interface StatsChartProps {
   history: PromptRecord[];

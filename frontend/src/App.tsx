@@ -6,7 +6,7 @@ import {
   getSessionHistory,
   clearSessionHistory,
 } from "./api";
-import { PromptRecord, SessionSummary } from "./types";
+import type { PromptRecord, SessionSummary } from "./types";
 import { Glyph } from "./components/Glyph";
 import { StatsChart } from "./components/StatsChart";
 
