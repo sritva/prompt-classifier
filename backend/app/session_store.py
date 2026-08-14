@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
-from app.models import Base, Session as DBSession, PromptRecord
+from .models import Base, Session as DBSession, PromptRecord
 
 load_dotenv()
 

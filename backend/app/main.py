@@ -7,9 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-from app import session_store
-from app.classifier import classify_prompt, PromptClassificationResult
-from app.overreliance import calculate_overreliance
+from . import session_store
+from .classifier import classify_prompt, PromptClassificationResult
+from .overreliance import calculate_overreliance
 
 load_dotenv()
 
