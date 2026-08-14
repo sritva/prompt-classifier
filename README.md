@@ -23,13 +23,7 @@ Premise: Overreliance on AI presents different cognitive risks depending on the 
 
 ---
 
-## 2. Application Interface
-
-![Prompt Classifier Dashboard](frontend/src/assets/hero.png)
-
----
-
-## 3. Overreliance Scoring Formula & Rationale
+## 2. Overreliance Scoring Formula & Rationale
 
 We track user prompts in a rolling **10-minute window**. The score is computed using the following weights:
 
@@ -46,7 +40,7 @@ We track user prompts in a rolling **10-minute window**. The score is computed u
 
 ---
 
-## 4. Tech Stack
+## 3. Tech Stack
 
 *   **Backend**: Python 3.11+, FastAPI (sync router), SQLite via SQLAlchemy ORM, Alembic migrations.
 *   **Frontend**: React, TypeScript, Vite, Recharts (visualizing thinking subtypes).
@@ -55,7 +49,7 @@ We track user prompts in a rolling **10-minute window**. The score is computed u
 
 ---
 
-## 5. API Documentation
+## 4. API Documentation
 
 ### 1. `POST /api/classify`
 Submits a prompt for classification. Rate-limited using an in-memory token-bucket.
@@ -116,7 +110,7 @@ Clears session history from the database database.
 
 ---
 
-## 6. Setup & Installation Guide
+## 5. Setup & Installation Guide
 
 ### Prerequisites
 *   Python 3.11+ installed.
@@ -170,7 +164,7 @@ Clears session history from the database database.
 
 ---
 
-## 7. Running Tests
+## 6. Running Tests
 
 ### Backend Tests (pytest)
 ```bash
@@ -188,7 +182,7 @@ npm run test
 
 ---
 
-## 8. Limitations
+## 7. Limitations
 
 1.  **Error Rates**: LLM classifiers carry an inherent error rate and might miscategorize prompts based on subtle formatting details.
 2.  **Fallback Weaknesses**: The local heuristic fallback uses keyword/regex matches. It is structurally weaker than the OpenAI model and can be fooled by prompts containing overlapping vocabulary (e.g. writing a "poem about code").
