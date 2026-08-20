@@ -6,6 +6,8 @@ export interface PromptRecord {
   confidence: number;
   reasoning: string;
   created_at: string;
+  latency_ms?: number | null;
+  total_tokens?: number | null;
 }
 
 export interface SessionSummary {
