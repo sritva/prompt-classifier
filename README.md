@@ -1,6 +1,6 @@
 # Prompt Classifier & Overreliance Monitor
 
-A full-stack web application that classifies user-submitted prompts as **convergent** or **divergent** using OpenAI (with structured outputs) or a local heuristic fallback. The application tracks thinking profiles across a session and warns when a user shows signs of overreliance on AI for convergent decision-making tasks they could likely reason through themselves.
+A full-stack web application that classifies user-submitted prompts as **convergent** or **divergent** using an LLM via any OpenAI-API-compatible provider (configured for OpenRouter by default, with structured outputs) or a local heuristic fallback. The application tracks thinking profiles across a session and warns when a user shows signs of overreliance on AI for convergent decision-making tasks they could likely reason through themselves.
 
 ---
 
@@ -188,7 +188,7 @@ npm run test
 ## 7. Limitations
 
 1.  **Error Rates**: LLM classifiers carry an inherent error rate and might miscategorize prompts based on subtle formatting details.
-2.  **Fallback Weaknesses**: The local heuristic fallback uses keyword/regex matches. It is structurally weaker than the OpenAI model and can be fooled by prompts containing overlapping vocabulary (e.g. writing a "poem about code"). See [`backend/evaluation/`](file:///c:/Users/sriva/Desktop/prompt-classifier/backend/evaluation/) for the evaluation methodology and labeled datasets used to test the fallback classifier's accuracy, including a train/holdout split.
+2.  **Fallback Weaknesses**: The local heuristic fallback uses keyword/regex matches. It is structurally weaker than the LLM and can be fooled by prompts containing overlapping vocabulary (e.g. writing a "poem about code"). See [`backend/evaluation/`](backend/evaluation/) for the evaluation methodology and labeled datasets used to test the fallback classifier's accuracy, including a train/holdout split.
 3.  **Non-Clinical Tool**: This application utilizes a simple point system to show patterns. It is an educational and reflective tool designed to prompt introspection about AI reliance, not a clinical or behavioral diagnostic instrument.
 
 ---

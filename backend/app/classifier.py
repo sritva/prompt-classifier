@@ -66,7 +66,7 @@ class PromptClassificationResult(BaseModel):
 def classify_heuristically(prompt: str) -> PromptClassificationResult:
     """
     Local heuristic/regex-based classifier that executes out-of-the-box
-    without requiring an OpenAI API key.
+    without requiring an LLM API key.
     """
     p = prompt.strip().lower()
     
