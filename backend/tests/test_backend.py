@@ -34,7 +34,7 @@ def test_heuristic_fallback_factual_lookup():
 def test_heuristic_fallback_divergent():
     res = classify_heuristically("Write a creative poem about the wind.")
     assert res.classification == "divergent"
-    assert res.subtype is None
+    assert res.subtype == "originality"
 
 # 2. Test Overreliance Scoring
 def test_overreliance_high():
@@ -204,7 +204,7 @@ def test_api_classify_fallback_success(client):
     assert response.status_code == 200
     data = response.json()
     assert data["classification"] == "divergent"
-    assert data["subtype"] is None
+    assert data["subtype"] == "originality"
     assert data["session_summary"]["total_prompts"] == 1
 
 @patch("app.classifier.OpenAI")

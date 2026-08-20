@@ -40,7 +40,8 @@ def add_prompt_record(
     reasoning: str,
     latency_ms: int | None = None,
     total_tokens: int | None = None,
-
+    explanation_details: str | None = None,
+    reflection_prompt: str | None = None
 ) -> PromptRecord:
     get_or_create_session(session_id)
     db = SessionLocal()
@@ -54,7 +55,8 @@ def add_prompt_record(
             reasoning=reasoning,
             latency_ms=latency_ms,
             total_tokens=total_tokens,
-
+            explanation_details=explanation_details,
+            reflection_prompt=reflection_prompt,
             created_at=datetime.now(timezone.utc)
         )
         db.add(record)

@@ -1,5 +1,6 @@
 import os
 import time
+import json
 from datetime import datetime
 from typing import Optional, List
 from fastapi import FastAPI, Depends, HTTPException, Request, status
@@ -80,7 +81,8 @@ class ClassifyResponse(BaseModel):
     created_at: datetime
     latency_ms: Optional[int] = None
     total_tokens: Optional[int] = None
-
+    explanation_details: Optional[dict] = None
+    reflection_prompt: Optional[str] = None
     session_summary: SessionSummary
 
 class SessionHistoryResponse(BaseModel):
@@ -140,7 +142,9 @@ def classify(request: ClassifyRequest):
         confidence=result.confidence,
         reasoning=result.reasoning,
         latency_ms=result.latency_ms,
-        total_tokens=result.total_tokens
+        total_tokens=result.total_tokens,
+        explanation_details=json.dumps(result.explanation_details.model_dump()) if result.explanation_details else None,
+        reflection_prompt=result.reflection_prompt
     )
     
     history = session_store.get_session_history(request.session_id)
@@ -156,7 +160,8 @@ def classify(request: ClassifyRequest):
         created_at=record.created_at,
         latency_ms=record.latency_ms,
         total_tokens=record.total_tokens,
-
+        explanation_details=json.loads(record.explanation_details) if record.explanation_details else None,
+        reflection_prompt=record.reflection_prompt,
         session_summary=summary
     )
 
@@ -179,7 +184,9 @@ def get_session(session_id: str):
             "reasoning": r.reasoning,
             "created_at": r.created_at,
             "latency_ms": r.latency_ms,
-            "total_tokens": r.total_tokens
+            "total_tokens": r.total_tokens,
+            "explanation_details": json.loads(r.explanation_details) if r.explanation_details else None,
+            "reflection_prompt": r.reflection_prompt
         })
         
     return SessionHistoryResponse(
