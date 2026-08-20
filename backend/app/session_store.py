@@ -37,7 +37,10 @@ def add_prompt_record(
     classification: str,
     subtype: str | None,
     confidence: float,
-    reasoning: str
+    reasoning: str,
+    latency_ms: int | None = None,
+    total_tokens: int | None = None,
+
 ) -> PromptRecord:
     get_or_create_session(session_id)
     db = SessionLocal()
@@ -49,6 +52,9 @@ def add_prompt_record(
             subtype=subtype,
             confidence=confidence,
             reasoning=reasoning,
+            latency_ms=latency_ms,
+            total_tokens=total_tokens,
+
             created_at=datetime.now(timezone.utc)
         )
         db.add(record)
@@ -81,3 +87,21 @@ def clear_session_history(session_id: str) -> None:
         db.commit()
     finally:
         db.close()
+
+def get_cached_prompt_record(prompt: str) -> PromptRecord | None:
+    db = SessionLocal()
+    try:
+        from sqlalchemy import func
+        normalized = prompt.strip().lower()
+        record = (
+            db.query(PromptRecord)
+            .filter(func.lower(func.trim(PromptRecord.prompt)) == normalized)
+            .order_by(PromptRecord.created_at.desc())
+            .first()
+        )
+        if record:
+            db.expunge(record)
+        return record
+    finally:
+        db.close()
+

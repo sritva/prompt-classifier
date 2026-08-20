@@ -78,6 +78,9 @@ class ClassifyResponse(BaseModel):
     confidence: float
     reasoning: str
     created_at: datetime
+    latency_ms: Optional[int] = None
+    total_tokens: Optional[int] = None
+
     session_summary: SessionSummary
 
 class SessionHistoryResponse(BaseModel):
@@ -135,7 +138,9 @@ def classify(request: ClassifyRequest):
         classification=result.classification,
         subtype=result.subtype,
         confidence=result.confidence,
-        reasoning=result.reasoning
+        reasoning=result.reasoning,
+        latency_ms=result.latency_ms,
+        total_tokens=result.total_tokens
     )
     
     history = session_store.get_session_history(request.session_id)
@@ -149,6 +154,9 @@ def classify(request: ClassifyRequest):
         confidence=record.confidence,
         reasoning=record.reasoning,
         created_at=record.created_at,
+        latency_ms=record.latency_ms,
+        total_tokens=record.total_tokens,
+
         session_summary=summary
     )
 
@@ -169,7 +177,9 @@ def get_session(session_id: str):
             "subtype": r.subtype,
             "confidence": r.confidence,
             "reasoning": r.reasoning,
-            "created_at": r.created_at
+            "created_at": r.created_at,
+            "latency_ms": r.latency_ms,
+            "total_tokens": r.total_tokens
         })
         
     return SessionHistoryResponse(
