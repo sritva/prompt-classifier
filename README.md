@@ -190,5 +190,6 @@ npm run test
 1.  **Error Rates**: LLM classifiers carry an inherent error rate and might miscategorize prompts based on subtle formatting details.
 2.  **Fallback Weaknesses**: The local heuristic fallback uses keyword/regex matches. It is structurally weaker than the LLM and can be fooled by prompts containing overlapping vocabulary (e.g. writing a "poem about code"). See [`backend/evaluation/`](backend/evaluation/) for the evaluation methodology and labeled datasets used to test the fallback classifier's accuracy, including a train/holdout split.
 3.  **Non-Clinical Tool**: This application utilizes a simple point system to show patterns. It is an educational and reflective tool designed to prompt introspection about AI reliance, not a clinical or behavioral diagnostic instrument.
+4.  **Persistent Cache Stickiness**: The persistent DB cache means once a prompt is classified (by either the LLM or the heuristic fallback), identical future prompts from any user/session will be served that same cached result indefinitely, until the database is cleared. This means a heuristic misclassification (e.g. the known code-vs-decision tradeoff already documented) can become "sticky" and get served repeatedly rather than being independently reclassified each time.
 
 ---
