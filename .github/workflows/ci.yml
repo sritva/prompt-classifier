@@ -39,7 +39,7 @@ jobs:
       - name: Run Pytest
         env:
           DATABASE_URL: 'sqlite:///:memory:'
-          OPENAI_API_KEY: placeholder
+          LLM_API_KEY: placeholder
         run: |
           cd backend
           python -m pytest

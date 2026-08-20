@@ -156,7 +156,7 @@ def test_api_classify_openai_success(mock_openai_class, client):
     mock_client.beta.chat.completions.parse.return_value = mock_response
 
     # Temporarily set API key to force OpenAI path
-    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-real-key-placeholder"}):
+    with patch.dict(os.environ, {"LLM_API_KEY": "sk-real-key-placeholder"}):
         response = client.post(
             "/api/classify",
             json={"prompt": "What is the boiling point of helium?", "session_id": "test-api-session"}
@@ -169,6 +169,9 @@ def test_api_classify_openai_success(mock_openai_class, client):
     assert data["confidence"] == 0.98
     assert data["session_summary"]["total_prompts"] == 1
     assert data["session_summary"]["convergent_percentage"] == 100.0
+    assert "latency_ms" in data
+    assert "total_tokens" in data
+    assert data["latency_ms"] is not None
 
 @patch("app.classifier.OpenAI")
 def test_api_classify_custom_endpoint_success(mock_openai_class, client):
@@ -185,8 +188,8 @@ def test_api_classify_custom_endpoint_success(mock_openai_class, client):
     mock_client.chat.completions.create.return_value = mock_response
 
     with patch.dict(os.environ, {
-        "OPENAI_API_KEY": "sk-or-v1-some-key",
-        "OPENAI_BASE_URL": "https://openrouter.ai/api/v1",
+        "LLM_API_KEY": "sk-or-v1-some-key",
+        "LLM_BASE_URL": "https://openrouter.ai/api/v1",
         "CLASSIFIER_MODEL": "nvidia/nemotron-3-super-120b-a12b:free"
     }):
         response = client.post(
@@ -205,7 +208,7 @@ def test_api_classify_custom_endpoint_success(mock_openai_class, client):
 
 def test_api_classify_fallback_success(client):
     # Explicitly verify fallback occurs when key is not set/placeholder
-    with patch.dict(os.environ, {"OPENAI_API_KEY": "placeholder"}):
+    with patch.dict(os.environ, {"LLM_API_KEY": "placeholder"}):
         response = client.post(
             "/api/classify",
             json={"prompt": "Write a story about a dragon.", "session_id": "test-fallback-session"}
@@ -224,7 +227,7 @@ def test_api_classify_openai_retry_and_fail(mock_openai_class, client):
     mock_openai_class.return_value = mock_client
     mock_client.beta.chat.completions.parse.side_effect = Exception("OpenAI API Down")
 
-    with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-real-key-placeholder"}):
+    with patch.dict(os.environ, {"LLM_API_KEY": "sk-real-key-placeholder"}):
         response = client.post(
             "/api/classify",
             json={"prompt": "What is 2+2?", "session_id": "test-fail-session"}
@@ -263,3 +266,55 @@ def test_api_session_history_and_clear(client):
     # Verify cleared
     get_again = client.get(f"/api/session/{session_id}")
     assert len(get_again.json()["history"]) == 0
+
+@patch("app.classifier.OpenAI")
+def test_confidence_threshold_fallback(mock_openai_class):
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    
+    mock_parsed_result = PromptClassificationResult(
+        classification="convergent",
+        confidence=0.4,
+        reasoning="Factual query but not sure.",
+        subtype="factual_lookup"
+    )
+    mock_choice = MagicMock()
+    mock_choice.message.parsed = mock_parsed_result
+    mock_response = MagicMock()
+    mock_response.choices = [mock_choice]
+    mock_client.beta.chat.completions.parse.return_value = mock_response
+
+    with patch.dict(os.environ, {"LLM_API_KEY": "sk-real-key-placeholder"}):
+        res = classify_prompt("What is the capital of France?")
+        
+    assert res.classification == "convergent"
+    assert res.subtype == "factual_lookup"
+    assert res.confidence == 0.85
+    assert "(LLM confidence below threshold, using heuristic fallback)" in res.reasoning
+
+@patch("app.classifier.OpenAI")
+def test_prompt_caching(mock_openai_class):
+    from app.classifier import CLASSIFIER_CACHE
+    CLASSIFIER_CACHE.clear()
+
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    
+    mock_parsed_result = PromptClassificationResult(
+        classification="convergent",
+        confidence=0.9,
+        reasoning="Factual query.",
+        subtype="factual_lookup"
+    )
+    mock_choice = MagicMock()
+    mock_choice.message.parsed = mock_parsed_result
+    mock_response = MagicMock()
+    mock_response.choices = [mock_choice]
+    mock_client.beta.chat.completions.parse.return_value = mock_response
+
+    with patch.dict(os.environ, {"LLM_API_KEY": "sk-real-key-placeholder"}):
+        res1 = classify_prompt("What is the capital of France?")
+        res2 = classify_prompt("What is the capital of France?")
+        
+    assert res1 == res2
+    assert mock_client.beta.chat.completions.parse.call_count == 1

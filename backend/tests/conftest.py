@@ -5,8 +5,8 @@ from pathlib import Path
 # Configure environment variables for test execution to use a file-based test DB
 TEST_DB_PATH = Path(__file__).parent.parent / "test_prompt_classifier.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH.resolve()}"
-os.environ["OPENAI_API_KEY"] = "placeholder"
-os.environ["OPENAI_BASE_URL"] = ""
+os.environ["LLM_API_KEY"] = "placeholder"
+os.environ["LLM_BASE_URL"] = ""
 os.environ["CLASSIFIER_MODEL"] = "gpt-4o-mini"
 
 from fastapi.testclient import TestClient

@@ -339,12 +339,12 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
         logger.warning(f"Database cache lookup failed: {e}")
 
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("LLM_API_KEY")
     if not api_key or api_key.strip() == "" or api_key.startswith("your-") or api_key == "placeholder":
-        logger.info("OPENAI_API_KEY is not set or contains placeholders. Falling back to local heuristic classifier.")
+        logger.info("LLM_API_KEY is not set or contains placeholders. Falling back to local heuristic classifier.")
         return classify_heuristically(prompt)
 
-    base_url = os.getenv("OPENAI_BASE_URL")
+    base_url = os.getenv("LLM_BASE_URL")
     model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
 
     client_args = {"api_key": api_key}

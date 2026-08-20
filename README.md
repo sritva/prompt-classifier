@@ -7,19 +7,19 @@ A full-stack web application that classifies user-submitted prompts as **converg
 ## 1. Theoretical Background & Citations
 
 ### Guilford's Structure of Intellect
-The distinction between convergent and divergent thinking comes from J. P. Guilford’s landmark psychological research in the 1950s:
+The distinction between convergent and divergent thinking comes from J. P. Guilfordâ€™s landmark psychological research in the 1950s:
 *   **Convergent Thinking**: Narrows down from multiple inputs towards a single correct, logical, or verifiable answer (e.g., mathematics, factual lookups, syntax debugging).
 *   **Divergent Thinking**: Expands outwards, generating multiple valid possibilities, ideas, or creative alternatives (e.g., brainstorming, creative writing, drafting alternatives).
 
-> **Citation**: Guilford, J. P. (1950). *Creativity*. American Psychologist, 5(9), 444–454.
+> **Citation**: Guilford, J. P. (1950). *Creativity*. American Psychologist, 5(9), 444â€“454.
 
 ### Cognitive Offloading & Automation Bias
 Premise: Overreliance on AI presents different cognitive risks depending on the thinking task. 
 *   For **divergent tasks** (brainstorming, drafting), AI acts as a creative sounding board, reducing initial ideation friction.
-*   For **convergent tasks** (calculations, factual lookup), cognitive offloading is highly convenient but can make users susceptible to **Automation Bias**—the human tendency to accept computer-generated recommendations without verifying them or performing independent cognitive work.
+*   For **convergent tasks** (calculations, factual lookup), cognitive offloading is highly convenient but can make users susceptible to **Automation Bias**â€”the human tendency to accept computer-generated recommendations without verifying them or performing independent cognitive work.
 *   The riskiest offloading involves **convergent-framed decisions** (e.g., "should I accept this job offer?"). Although users frame these as having a single "correct" answer, they are deeply subjective choices requiring personal judgment. Outsourcing this judgment to LLMs weakens human agency and critical reasoning.
 
-> **Citation**: Parasuraman, R., & Manzey, D. H. (2010). *Complacency and Bias in Human Use of Automation*. Human Factors, 52(3), 381–410.
+> **Citation**: Parasuraman, R., & Manzey, D. H. (2010). *Complacency and Bias in Human Use of Automation*. Human Factors, 52(3), 381â€“410.
 
 ---
 
@@ -136,7 +136,7 @@ Clears session history from the database database.
 4. Copy configurations and create `.env` (optional):
    ```bash
    cp .env.example .env
-   # Set OPENAI_API_KEY if desired; otherwise, fallback heuristics run automatically
+   # Configure LLM_API_KEY and LLM_BASE_URL; otherwise, fallback heuristics run automatically
    ```
 5. Apply database migrations using Alembic:
    ```bash
@@ -189,4 +189,3 @@ npm run test
 3.  **Non-Clinical Tool**: This application utilizes a simple point system to show patterns. It is an educational and reflective tool designed to prompt introspection about AI reliance, not a clinical or behavioral diagnostic instrument.
 
 ---
-
