@@ -1,0 +1,36 @@
+{"prompt": "Who composed the Magic Flute opera?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who sculpted the Statue of David?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who directed the film Inception?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who choreographed the Nutcracker ballet?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who engineered the Golden Gate Bridge?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who designed the Eiffel Tower?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the freezing point of mercury?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the average height of a giraffe?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the lifespan of a housefly?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the escape velocity of Earth?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the carrying capacity of a Boeing 747?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the focal length of a standard portrait lens?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How many keys are on a standard piano?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How many bones are in the human foot?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How many stripes are on the US flag?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How many chambers are in a human heart?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How many players are on a soccer field?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How many colors are in a rainbow?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "In what year was the Magna Carta signed?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What year did the Apollo 11 mission land on the Moon?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What year was the first iPhone released?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "In what year did the French Revolution begin?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What year did the Chernobyl disaster occur?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "In what year was the internet made public?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How far is the Sun from Earth?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How long does it take for light to travel from the Sun to Earth?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How much does the brain weigh on average?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How fast does sound travel in water?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How deep is the Mariana Trench?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How tall is the Empire State Building?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Identify the first element on the periodic table.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Specify the location of the ancient city of Petra.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Name the writer of Sherlock Holmes.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "State the chemical composition of bronze.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Define the term photosynthesis.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "List the base units of the SI system.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}

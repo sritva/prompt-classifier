@@ -1,0 +1,275 @@
+{
+  "metrics": {
+    "overall_accuracy": 0.5278,
+    "class_accuracy": 1.0,
+    "subtype_accuracy": 0.5278,
+    "classification": {
+      "convergent": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 36
+      }
+    },
+    "subtype": {
+      "factual_lookup": {
+        "precision": 1.0,
+        "recall": 0.5278,
+        "f1": 0.6909,
+        "support": 36
+      }
+    }
+  },
+  "confusion_matrices": {
+    "classification": {
+      "convergent": {
+        "convergent": 36,
+        "divergent": 0
+      },
+      "divergent": {
+        "convergent": 0,
+        "divergent": 0
+      }
+    },
+    "subtype": {
+      "factual_lookup": {
+        "factual_lookup": 19,
+        "computation": 0,
+        "code_debugging": 0,
+        "decision_making": 0,
+        "other": 17,
+        "None": 0
+      },
+      "computation": {
+        "factual_lookup": 0,
+        "computation": 0,
+        "code_debugging": 0,
+        "decision_making": 0,
+        "other": 0,
+        "None": 0
+      },
+      "code_debugging": {
+        "factual_lookup": 0,
+        "computation": 0,
+        "code_debugging": 0,
+        "decision_making": 0,
+        "other": 0,
+        "None": 0
+      },
+      "decision_making": {
+        "factual_lookup": 0,
+        "computation": 0,
+        "code_debugging": 0,
+        "decision_making": 0,
+        "other": 0,
+        "None": 0
+      },
+      "other": {
+        "factual_lookup": 0,
+        "computation": 0,
+        "code_debugging": 0,
+        "decision_making": 0,
+        "other": 0,
+        "None": 0
+      },
+      "None": {
+        "factual_lookup": 0,
+        "computation": 0,
+        "code_debugging": 0,
+        "decision_making": 0,
+        "other": 0,
+        "None": 0
+      }
+    }
+  },
+  "misclassified": [
+    {
+      "prompt": "Who composed the Magic Flute opera?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "Who sculpted the Statue of David?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "Who directed the film Inception?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "Who choreographed the Nutcracker ballet?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "Who engineered the Golden Gate Bridge?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "What is the freezing point of mercury?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "What is the lifespan of a housefly?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "What is the escape velocity of Earth?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "What is the carrying capacity of a Boeing 747?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "What is the focal length of a standard portrait lens?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "How deep is the Mariana Trench?",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "Identify the first element on the periodic table.",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "Specify the location of the ancient city of Petra.",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "Name the writer of Sherlock Holmes.",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "State the chemical composition of bronze.",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "Define the term photosynthesis.",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    },
+    {
+      "prompt": "List the base units of the SI system.",
+      "expected": {
+        "classification": "convergent",
+        "subtype": "factual_lookup"
+      },
+      "actual": {
+        "classification": "convergent",
+        "subtype": "other"
+      }
+    }
+  ],
+  "total_prompts": 36
+}
