@@ -21,6 +21,16 @@ def test_heuristic_fallback_code_debugging():
     assert res.classification == "convergent"
     assert res.subtype == "code_debugging"
 
+def test_heuristic_fallback_ordering_bug():
+    # Prompt matches both decision ("should I") and code ("loop" or "while") keywords
+    res1 = classify_heuristically("should I use a for loop or a while loop here")
+    assert res1.classification == "convergent"
+    assert res1.subtype == "code_debugging"
+
+    res2 = classify_heuristically("Should I write a function or a class for this?")
+    assert res2.classification == "convergent"
+    assert res2.subtype == "code_debugging"
+
 def test_heuristic_fallback_computation():
     res = classify_heuristically("Solve 25 * 4 + 10")
     assert res.classification == "convergent"
