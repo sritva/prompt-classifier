@@ -5,6 +5,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 
 from app.classifier import classify_heuristically, classify_prompt, PromptClassificationResult
+from app.main import generate_signed_session_id
 from app.overreliance import calculate_overreliance
 from app import session_store
 from app.models import PromptRecord
@@ -157,9 +158,10 @@ def test_api_classify_openai_success(mock_openai_class, client):
 
     # Temporarily set API key to force OpenAI path
     with patch.dict(os.environ, {"LLM_API_KEY": "sk-real-key-placeholder"}):
+        session_id = generate_signed_session_id()
         response = client.post(
             "/api/classify",
-            json={"prompt": "What is the boiling point of helium?", "session_id": "test-api-session"}
+            json={"prompt": "What is the boiling point of helium?", "session_id": session_id}
         )
         
     assert response.status_code == 200
@@ -192,9 +194,10 @@ def test_api_classify_custom_endpoint_success(mock_openai_class, client):
         "LLM_BASE_URL": "https://openrouter.ai/api/v1",
         "CLASSIFIER_MODEL": "nvidia/nemotron-3-super-120b-a12b:free"
     }):
+        session_id = generate_signed_session_id()
         response = client.post(
             "/api/classify",
-            json={"prompt": "Solve 2+2", "session_id": "test-custom-session"}
+            json={"prompt": "Solve 2+2", "session_id": session_id}
         )
         
     assert response.status_code == 200
@@ -209,9 +212,10 @@ def test_api_classify_custom_endpoint_success(mock_openai_class, client):
 def test_api_classify_fallback_success(client):
     # Explicitly verify fallback occurs when key is not set/placeholder
     with patch.dict(os.environ, {"LLM_API_KEY": "placeholder"}):
+        session_id = generate_signed_session_id()
         response = client.post(
             "/api/classify",
-            json={"prompt": "Write a story about a dragon.", "session_id": "test-fallback-session"}
+            json={"prompt": "Write a story about a dragon.", "session_id": session_id}
         )
         
     assert response.status_code == 200
@@ -228,9 +232,10 @@ def test_api_classify_openai_retry_and_fail(mock_openai_class, client):
     mock_client.beta.chat.completions.parse.side_effect = Exception("OpenAI API Down")
 
     with patch.dict(os.environ, {"LLM_API_KEY": "sk-real-key-placeholder"}):
+        session_id = generate_signed_session_id()
         response = client.post(
             "/api/classify",
-            json={"prompt": "What is 2+2?", "session_id": "test-fail-session"}
+            json={"prompt": "What is 2+2?", "session_id": session_id}
         )
         
     # Standard sync TestClient allows us to capture the 500 error
@@ -240,7 +245,7 @@ def test_api_classify_openai_retry_and_fail(mock_openai_class, client):
     assert mock_client.beta.chat.completions.parse.call_count == 2
 
 def test_api_session_history_and_clear(client):
-    session_id = "test-history-clear"
+    session_id = generate_signed_session_id()
     
     # Populate history
     session_store.add_prompt_record(
@@ -318,3 +323,34 @@ def test_prompt_caching(mock_openai_class):
         
     assert res1 == res2
     assert mock_client.beta.chat.completions.parse.call_count == 1
+
+
+def test_api_session_creation(client):
+    response = client.post("/api/session")
+    assert response.status_code == 200
+    data = response.json()
+    assert "session_id" in data
+    assert "." in data["session_id"]
+
+def test_api_session_verification_failure(client):
+    # Unsigned session ID
+    response = client.get("/api/session/invalid-session-id")
+    assert response.status_code == 403
+    assert "Session verification failed" in response.json()["detail"]
+
+    # Invalid signature
+    response2 = client.post(
+        "/api/classify",
+        json={"prompt": "Hello", "session_id": "someid.invalidsig"}
+    )
+    assert response2.status_code == 403
+
+def test_api_classify_prompt_length_limit(client):
+    session_id = generate_signed_session_id()
+    long_prompt = "a" * 5001
+    response = client.post(
+        "/api/classify",
+        json={"prompt": long_prompt, "session_id": session_id}
+    )
+    # FastAPI returns 422 for Pydantic validation errors
+    assert response.status_code == 422

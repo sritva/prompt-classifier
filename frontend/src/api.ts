@@ -2,17 +2,28 @@ import type { ClassifyResponse, SessionHistoryResponse } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-export function getOrCreateSessionId(): string {
+export async function fetchNewSessionId(): Promise<string> {
+  const response = await fetch(`${API_BASE}/api/session`, {
+    method: "POST",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to create secure session: ${response.status}`);
+  }
+  const data = await response.json();
+  return data.session_id;
+}
+
+export async function getOrCreateSessionId(): Promise<string> {
   let id = localStorage.getItem("prompt_classifier_session_id");
-  if (!id) {
-    id = "sess_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
+  if (!id || !id.includes(".")) {
+    id = await fetchNewSessionId();
     localStorage.setItem("prompt_classifier_session_id", id);
   }
   return id;
 }
 
-export function resetSessionId(): string {
-  const id = "sess_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
+export async function resetSessionId(): Promise<string> {
+  const id = await fetchNewSessionId();
   localStorage.setItem("prompt_classifier_session_id", id);
   return id;
 }

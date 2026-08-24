@@ -22,9 +22,16 @@ export const App: React.FC = () => {
   const [dismissedWarning, setDismissedWarning] = useState<boolean>(false);
 
   useEffect(() => {
-    const id = getOrCreateSessionId();
-    setSessionId(id);
-    fetchHistory(id);
+    const initSession = async () => {
+      try {
+        const id = await getOrCreateSessionId();
+        setSessionId(id);
+        fetchHistory(id);
+      } catch (err: any) {
+        setError(err.message || "Failed to initialize secure session.");
+      }
+    };
+    initSession();
   }, []);
 
   const fetchHistory = async (id: string) => {
@@ -71,7 +78,7 @@ export const App: React.FC = () => {
     }
     try {
       await clearSessionHistory(sessionId);
-      const newId = resetSessionId();
+      const newId = await resetSessionId();
       setSessionId(newId);
       setHistory([]);
       setSummary(null);

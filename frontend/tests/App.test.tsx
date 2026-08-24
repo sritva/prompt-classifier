@@ -24,7 +24,7 @@ describe("Prompt Classifier Frontend App", () => {
     localStorage.clear();
     
     // Default mocks
-    vi.spyOn(api, "getOrCreateSessionId").mockReturnValue("test-session-id");
+    vi.spyOn(api, "getOrCreateSessionId").mockResolvedValue("test-session-id");
     vi.spyOn(api, "getSessionHistory").mockResolvedValue({
       session_id: "test-session-id",
       history: [],
@@ -38,8 +38,16 @@ describe("Prompt Classifier Frontend App", () => {
     });
   });
 
+  const renderApp = async () => {
+    const view = render(<App />);
+    await waitFor(() => {
+      expect(api.getSessionHistory).toHaveBeenCalled();
+    });
+    return view;
+  };
+
   it("renders the empty state and title correctly", async () => {
-    render(<App />);
+    await renderApp();
     
     expect(screen.getByText("prompt classifier")).toBeInTheDocument();
     expect(screen.getByText("guilford cognitive tool")).toBeInTheDocument();
@@ -74,7 +82,7 @@ describe("Prompt Classifier Frontend App", () => {
 
     vi.spyOn(api, "classifyPrompt").mockReturnValue(delayedResolve);
 
-    render(<App />);
+    await renderApp();
 
     const textarea = screen.getByPlaceholderText("Submit a prompt to analyze thinking style...");
     const submitBtn = screen.getByRole("button", { name: "Classify Prompt" });
@@ -111,7 +119,7 @@ describe("Prompt Classifier Frontend App", () => {
 
     vi.spyOn(api, "classifyPrompt").mockResolvedValue(mockResult);
 
-    render(<App />);
+    await renderApp();
 
     const textarea = screen.getByPlaceholderText("Submit a prompt to analyze thinking style...");
     const submitBtn = screen.getByRole("button", { name: "Classify Prompt" });
@@ -134,7 +142,7 @@ describe("Prompt Classifier Frontend App", () => {
   it("handles error states (e.g. network failure / rate limit)", async () => {
     vi.spyOn(api, "classifyPrompt").mockRejectedValue(new Error("Rate limit exceeded. Try again in a few seconds."));
 
-    render(<App />);
+    await renderApp();
 
     const textarea = screen.getByPlaceholderText("Submit a prompt to analyze thinking style...");
     const submitBtn = screen.getByRole("button", { name: "Classify Prompt" });
@@ -186,7 +194,7 @@ describe("Prompt Classifier Frontend App", () => {
       },
     });
 
-    render(<App />);
+    await renderApp();
 
     // Wait for render
     await waitFor(() => {

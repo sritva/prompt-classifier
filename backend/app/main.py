@@ -1,11 +1,14 @@
 import os
 import time
 import json
+import hmac
+import hashlib
+import secrets
 from datetime import datetime
 from typing import Optional, List
 from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 from . import session_store
@@ -16,13 +19,43 @@ load_dotenv()
 
 app = FastAPI(title="Prompt Classifier API")
 
+# Configure secure CORS origins
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",") if origin.strip()]
+allow_credentials = True
+if "*" in allowed_origins:
+    allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Secure Session ID Signing Configuration
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev-secret-key-change-in-production-1234567890")
+
+def generate_signed_session_id() -> str:
+    raw_id = secrets.token_urlsafe(16)
+    sig = hmac.new(SESSION_SECRET_KEY.encode(), raw_id.encode(), hashlib.sha256).hexdigest()
+    return f"{raw_id}.{sig}"
+
+def verify_session_id(signed_id: str) -> bool:
+    try:
+        raw_id, sig = signed_id.rsplit(".", 1)
+        expected_sig = hmac.new(SESSION_SECRET_KEY.encode(), raw_id.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig, expected_sig)
+    except Exception:
+        return False
+
+def check_session_id(session_id: str):
+    if not verify_session_id(session_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Session verification failed. Invalid or malformed session identifier."
+        )
 
 class TokenBucket:
     def __init__(self, capacity: int, refill_rate: float):
@@ -48,8 +81,14 @@ def rate_limit(request: Request):
     """
     In-memory rate limiter bucket dependency for /api/classify.
     Capacity: 10 requests, refills 1 token every 2 seconds (0.5 tokens/sec).
+    Supports X-Forwarded-For to work correctly behind reverse proxies.
     """
-    client_ip = request.client.host if request.client else "unknown"
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        client_ip = forwarded_for.split(",")[0].strip()
+    else:
+        client_ip = request.client.host if request.client else "unknown"
+    
     if client_ip not in classify_buckets:
         classify_buckets[client_ip] = TokenBucket(capacity=10, refill_rate=0.5)
     
@@ -61,7 +100,7 @@ def rate_limit(request: Request):
         )
 
 class ClassifyRequest(BaseModel):
-    prompt: str
+    prompt: str = Field(..., max_length=5000, description="The prompt text to classify (max 5000 characters)")
     session_id: str
 
 class SessionSummary(BaseModel):
@@ -117,12 +156,20 @@ def build_session_summary(history) -> SessionSummary:
         overreliance_signal=overreliance_data["signal"]
     )
 
+@app.post("/api/session")
+def create_session():
+    """
+    Generates and returns a new signed session ID.
+    """
+    return {"session_id": generate_signed_session_id()}
+
 @app.post("/api/classify", response_model=ClassifyResponse, dependencies=[Depends(rate_limit)])
 def classify(request: ClassifyRequest):
     """
     Submits a user prompt for classification, records it in the database session,
     and returns the result with a rolling overreliance analysis score.
     """
+    check_session_id(request.session_id)
     if not request.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
         
@@ -170,6 +217,7 @@ def get_session(session_id: str):
     """
     Retrieves the complete history of prompts and classification summaries for a given session.
     """
+    check_session_id(session_id)
     history = session_store.get_session_history(session_id)
     summary = build_session_summary(history)
     
@@ -200,5 +248,6 @@ def delete_session(session_id: str):
     """
     Clears all recorded prompts and resets the cognitive scoring context for the session.
     """
+    check_session_id(session_id)
     session_store.clear_session_history(session_id)
     return {"message": "Session history cleared successfully"}
