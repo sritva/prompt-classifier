@@ -1,0 +1,53 @@
+# Prompt Classifier
+
+An advanced cognitive profiling tool and AI overreliance monitor based on J.P. Guilford's convergent and divergent thinking theory.
+
+## System Framework
+
+The application classifies user-submitted prompts into two core thinking styles:
+1. **Convergent Thinking**: Narrows down from multiple inputs towards a single correct, logical, or verifiable answer (e.g., mathematics, factual lookups, syntax debugging).
+2. **Divergent Thinking**: Expands outwards, generating multiple valid possibilities, ideas, or creative alternatives (e.g., brainstorming, creative writing, drafting alternatives).
+
+### Subtypes
+- **Convergent**: `factual_lookup`, `computation`, `code_debugging`, `decision_making`, `other`.
+- **Divergent**: `fluency` (quantity of ideas), `flexibility` (different categories), `originality` (unique ideas), `elaboration` (expanding ideas).
+
+## Overreliance Scoring Model
+
+User prompts are tracked in a rolling **10-minute window**. The cognitive overreliance score is computed using the following weights:
+- `decision_making` (convergent): **+3 points** per prompt (highest risk; represents offloading critical personal agency).
+- `code_debugging` (convergent): **+2 points** per prompt (moderate risk; offloads code debugging which would otherwise train mental models).
+- `computation`, `factual_lookup`, `other` (convergent): **+1 point** each (low risk; basic offloading).
+- `divergent` prompts: **-1 point** each (mitigates the overreliance score, floor of 0; reflects balanced creative ideation).
+
+### Actionable Signals
+- **Score >= 8**: High Overreliance (Triggers bright crimson warning banner).
+- **Score >= 5**: Moderate Overreliance (Triggers orange warning banner).
+- **Score >= 2**: Low Overreliance.
+- **Score < 2**: None.
+
+## API Documentation
+
+All API requests must use the signed session ID verification scheme.
+
+### 1. `POST /api/session`
+Generates and returns a cryptographically secure, backend-signed session ID.
+- **Response**: `{"session_id": "<secure_id>.<signature>"}`
+
+### 2. `POST /api/classify`
+Classifies a prompt and appends it to the active session history.
+- **Headers**: Requires CORS configuration.
+- **Request Body**:
+  ```json
+  {
+    "prompt": "String (max 5000 characters)",
+    "session_id": "String (signed token)"
+  }
+  ```
+- **Response**: Returns classification classification, confidence, reasoning, explanation details (inputs, outputs, creative freedom, factual dependency, complexity), reflection prompt (reflective friction prompt for convergent queries), and updated session summaries.
+
+### 3. `GET /api/session/{session_id}`
+Retrieves session history and profile summary for a given validated session ID.
+
+### 4. `DELETE /api/session/{session_id}`
+Clears session history database records and resets cognitive scoring context.

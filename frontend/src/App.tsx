@@ -34,6 +34,18 @@ export const App: React.FC = () => {
     initSession();
   }, []);
 
+  useEffect(() => {
+    if (window.location.pathname !== "/") {
+      document.title = "404 Not Found | Prompt Classifier";
+    } else if (selectedPrompt) {
+      document.title = `Analysis: "${selectedPrompt.prompt.substring(0, 20)}..." | Prompt Classifier`;
+    } else if (latestResult) {
+      document.title = `Result: ${latestResult.classification} | Prompt Classifier`;
+    } else {
+      document.title = "Prompt Classifier";
+    }
+  }, [selectedPrompt, latestResult]);
+
   const fetchHistory = async (id: string) => {
     try {
       const data = await getSessionHistory(id);
@@ -100,6 +112,25 @@ export const App: React.FC = () => {
     (summary.overreliance_signal === "high" ||
       summary.overreliance_signal === "moderate") &&
     !dismissedWarning;
+
+  if (window.location.pathname !== "/") {
+    return (
+      <div className="app-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "80vh", textAlign: "center" }}>
+        <h1 style={{ fontSize: "4rem", color: "var(--color-divergent)", margin: "0 0 1rem 0" }}>404</h1>
+        <h2 style={{ fontSize: "1.5rem", margin: "0 0 2rem 0" }}>cognitive path lost</h2>
+        <p style={{ maxWidth: "400px", color: "var(--color-muted)", margin: "0 0 2rem 0", lineHeight: "1.6" }}>
+          The link or route you followed does not exist in this cognitive space. Return to the dashboard to classify prompts.
+        </p>
+        <button 
+          onClick={() => { window.location.href = "/"; }} 
+          className="submit-btn" 
+          style={{ alignSelf: "center" }}
+        >
+          Go to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">

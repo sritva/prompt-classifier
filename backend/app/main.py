@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Optional, List
 from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -33,6 +34,58 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc: Exception):
+    if "text/html" in request.headers.get("accept", "").lower():
+        html_content = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>404 Not Found</title>
+            <style>
+                body {
+                    background-color: #181716;
+                    color: #E3DFD5;
+                    font-family: system-ui, -apple-system, sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    margin: 0;
+                }
+                h1 {
+                    font-size: 3rem;
+                    margin: 0 0 1rem 0;
+                    color: #D49B55;
+                }
+                p {
+                    font-size: 1.1rem;
+                    color: #7D786F;
+                    margin: 0 0 2rem 0;
+                }
+                a {
+                    color: #E3DFD5;
+                    font-family: monospace;
+                    text-decoration: underline;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>404</h1>
+            <p>The requested page or resource could not be found.</p>
+            <a href="/">Go to Dashboard</a>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html_content, status_code=404)
+    return JSONResponse(
+        status_code=404,
+        content={"error": "Not Found", "message": "The requested API endpoint does not exist."}
+    )
 
 # Secure Session ID Signing Configuration
 SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev-secret-key-change-in-production-1234567890")
