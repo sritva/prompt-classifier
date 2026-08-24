@@ -20,6 +20,7 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [dismissedWarning, setDismissedWarning] = useState<boolean>(false);
+  const [showInfo, setShowInfo] = useState<boolean>(false);
 
   useEffect(() => {
     const initSession = async () => {
@@ -178,6 +179,97 @@ export const App: React.FC = () => {
           [ ERROR ]: {error}
         </div>
       )}
+
+      <section className="info-section">
+        <button 
+          onClick={() => setShowInfo(!showInfo)} 
+          className="info-toggle-btn"
+          aria-expanded={showInfo}
+        >
+          {showInfo ? "[ Hide Guide & Cognitive Theory ]" : "[ Show Guide & Cognitive Theory ]"}
+        </button>
+        
+        {showInfo && (
+          <div className="info-content">
+            <div className="info-grid">
+              <div className="info-card">
+                <h3>What is this tool?</h3>
+                <p>
+                  This dashboard is a cognitive assistant designed to monitor how you rely on AI. It analyzes the prompts you submit and groups them into two primary thinking styles:
+                </p>
+                <ul>
+                  <li><strong className="state-convergent">Convergent (Focused)</strong>: Prompts that search for a single correct, logical, or verifiable answer (such as writing/debugging code, solving math problems, looking up facts, or making personal choices).</li>
+                  <li><strong className="state-divergent">Divergent (Creative)</strong>: Prompts that expand outwards to generate open-ended ideas, alternatives, or creative drafts (such as brainstorming, outlining, or writing stories).</li>
+                </ul>
+              </div>
+              <div className="info-card">
+                <h3>The Risk of Overreliance</h3>
+                <p>
+                  Outsourcing your analytical tasks or personal choices to AI creates a risk of <strong>automation complacency</strong> (or <strong>automation bias</strong>) — the habit of blindly trusting machine-generated suggestions instead of engaging in active critical thinking.
+                </p>
+                <p>
+                  <em>Or in simpler terms—</em> if you always rely on a GPS to navigate, you eventually forget how to read a map. Similarly, if you constantly offload your thinking to AI, you risk losing the habit of questioning things and solving complex problems on your own.
+                </p>
+                <p>
+                  This tool tracks your prompt history inside a rolling <strong>10-minute window</strong> to calculate an <strong>Overreliance Score</strong>. If your score gets too high, the system alerts you and offers reflective challenge prompts to encourage independent reasoning.
+                </p>
+              </div>
+            </div>
+            
+            <div className="scoring-table-wrapper">
+              <h4>Overreliance Scoring Rules (10-Min Window)</h4>
+              <table className="scoring-table">
+                <thead>
+                  <tr>
+                    <th>Prompt Type</th>
+                    <th>Points</th>
+                    <th>Rationale</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Making a Decision</strong></td>
+                    <td style={{ color: "var(--color-divergent)", fontWeight: "bold" }}>+3 points</td>
+                    <td>High risk: Offloads subjective, personal choice and critical judgment.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Fixing Code</strong></td>
+                    <td style={{ color: "var(--color-divergent)", fontWeight: "bold" }}>+2 points</td>
+                    <td>Moderate risk: Bypasses the learning process of active debugging.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Facts / Computation / Other</strong></td>
+                    <td style={{ color: "var(--color-muted)" }}>+1 point</td>
+                    <td>Low risk: Routine reference lookups.</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Creative / Brainstorming</strong></td>
+                    <td style={{ color: "var(--color-convergent)", fontWeight: "bold" }}>-1 point</td>
+                    <td>Score offset: Uses AI as a collaborative sounding board.</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p className="scoring-note">
+                Scores &ge; 5 trigger a warning banner, and &ge; 8 trigger a high-level warning. The minimum possible score is 0.
+              </p>
+            </div>
+
+            <div className="research-references-section" style={{ borderTop: "1px solid var(--color-border)", paddingTop: "1.25rem", marginTop: "1rem" }}>
+              <h4 style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", margin: "0 0 0.75rem 0", textTransform: "uppercase", color: "var(--color-muted)" }}>
+                Scientific Research References
+              </h4>
+              <ul style={{ margin: 0, paddingLeft: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <li style={{ fontSize: "0.85rem", lineHeight: "1.5" }}>
+                  <strong>Guilford (1959)</strong>: Defined the difference between focused analytical thinking (convergent) and open-ended creative thinking (divergent).
+                </li>
+                <li style={{ fontSize: "0.85rem", lineHeight: "1.5" }}>
+                  <strong>Parasuraman & Manzey (2010)</strong>: Showed that when automated systems are highly reliable, humans stop checking them, losing their own ability to solve the problems.
+                </li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </section>
 
       <main>
         <form onSubmit={handleSubmit} className="prompt-form" id="prompt-form">
@@ -439,6 +531,20 @@ export const App: React.FC = () => {
           </div>
         </section>
       )}
+
+      <footer className="app-footer">
+        <p className="footer-quote">
+          "The real danger is not that computers will begin to think like men, but that men will begin to think like computers."
+        </p>
+        <span className="footer-author">— Sydney J. Harris</span>
+        <div className="footer-meta">
+          <span>© 2026 Prompt Classifier • <a href="https://github.com/sritva" target="_blank" rel="noreferrer">sritva</a></span>
+          <span>•</span>
+          <a href="/llms.txt" target="_blank" rel="noreferrer">llms.txt</a>
+          <span>•</span>
+          <a href="/sitemap.xml" target="_blank" rel="noreferrer">sitemap</a>
+        </div>
+      </footer>
     </div>
   );
 };
