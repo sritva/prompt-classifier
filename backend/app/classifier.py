@@ -303,7 +303,11 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
     api_key = os.getenv("LLM_API_KEY")
     if not api_key or api_key.strip() == "" or api_key.startswith("your-") or api_key == "placeholder":
         logger.info("LLM_API_KEY is not set or contains placeholders. Falling back to local heuristic classifier.")
-        return classify_heuristically(prompt)
+        heuristic_res = classify_heuristically(prompt)
+        CLASSIFIER_CACHE[cache_key] = (time.time(), heuristic_res)
+        if len(CLASSIFIER_CACHE) > MAX_CACHE_SIZE:
+            CLASSIFIER_CACHE.pop(next(iter(CLASSIFIER_CACHE)))
+        return heuristic_res
 
     base_url = os.getenv("LLM_BASE_URL")
 

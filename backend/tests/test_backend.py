@@ -392,5 +392,86 @@ def test_api_classify_prompt_length_limit(client):
         "/api/classify",
         json={"prompt": long_prompt, "session_id": session_id}
     )
-    # FastAPI returns 422 for Pydantic validation errors
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("prompt,expected_class,expected_subtype", [
+    ("Who composed the Magic Flute opera?", "convergent", "factual_lookup"),
+    ("Who sculpted the Statue of David?", "convergent", "factual_lookup"),
+    ("Who directed the film Inception?", "convergent", "factual_lookup"),
+    ("Who choreographed the Nutcracker ballet?", "convergent", "factual_lookup"),
+    ("Who engineered the Golden Gate Bridge?", "convergent", "factual_lookup"),
+    ("Who designed the Eiffel Tower?", "convergent", "factual_lookup"),
+    ("What is the freezing point of mercury?", "convergent", "factual_lookup"),
+    ("What is the average height of a giraffe?", "convergent", "factual_lookup"),
+    ("What is the lifespan of a housefly?", "convergent", "factual_lookup"),
+    ("What is the escape velocity of Earth?", "convergent", "factual_lookup"),
+    ("What is the carrying capacity of a Boeing 747?", "convergent", "factual_lookup"),
+    ("What is the focal length of a standard portrait lens?", "convergent", "factual_lookup"),
+    ("How many keys are on a standard piano?", "convergent", "factual_lookup"),
+    ("How many bones are in the human foot?", "convergent", "factual_lookup"),
+    ("How many stripes are on the US flag?", "convergent", "factual_lookup"),
+    ("How many chambers are in a human heart?", "convergent", "factual_lookup"),
+    ("How many players are on a soccer field?", "convergent", "factual_lookup"),
+    ("How many colors are in a rainbow?", "convergent", "factual_lookup"),
+    ("In what year was the Magna Carta signed?", "convergent", "factual_lookup"),
+    ("Identify the first element on the periodic table.", "convergent", "factual_lookup"),
+    ("Specify the location of the ancient city of Petra.", "convergent", "factual_lookup"),
+    ("Name the writer of Sherlock Holmes.", "convergent", "factual_lookup"),
+    ("State the chemical composition of bronze.", "convergent", "factual_lookup"),
+    ("Define the term photosynthesis.", "convergent", "factual_lookup"),
+    ("List the base units of the SI system.", "convergent", "factual_lookup"),
+    ("Divide 1500 by 25 and multiply by 4.", "convergent", "computation"),
+    ("Solve the system: x + y = 10, x - y = 2.", "convergent", "computation"),
+    ("Fix this regex that fails to match valid email addresses.", "convergent", "code_debugging"),
+])
+def test_known_misclassification_regressions(prompt, expected_class, expected_subtype):
+    res = classify_heuristically(prompt)
+    assert res.classification == expected_class
+    assert res.subtype == expected_subtype
+    assert res.confidence >= 0.65
+
+
+def test_overreliance_confidence_downweighting():
+    now = datetime.now(timezone.utc)
+    low_conf_history = [
+        PromptRecord(classification="convergent", subtype="decision_making", confidence=0.3, created_at=now - timedelta(minutes=1)),
+        PromptRecord(classification="convergent", subtype="decision_making", confidence=0.4, created_at=now - timedelta(minutes=2)),
+        PromptRecord(classification="convergent", subtype="decision_making", confidence=0.3, created_at=now - timedelta(minutes=3)),
+    ]
+    res_low = calculate_overreliance(low_conf_history, reference_time=now)
+    assert res_low["score"] == 3
+    assert res_low["signal"] == "low"
+
+    high_conf_history = [
+        PromptRecord(classification="convergent", subtype="decision_making", confidence=1.0, created_at=now - timedelta(minutes=1)),
+        PromptRecord(classification="convergent", subtype="decision_making", confidence=1.0, created_at=now - timedelta(minutes=2)),
+        PromptRecord(classification="convergent", subtype="decision_making", confidence=1.0, created_at=now - timedelta(minutes=3)),
+    ]
+    res_high = calculate_overreliance(high_conf_history, reference_time=now)
+    assert res_high["score"] == 9
+    assert res_high["signal"] == "high"
+
+
+def test_cache_ttl_expiration():
+    from app.classifier import CLASSIFIER_CACHE, classify_prompt
+    import app.classifier as classifier_mod
+    CLASSIFIER_CACHE.clear()
+
+    test_prompt = "What is 100 * 200?"
+    res1 = classify_prompt(test_prompt)
+
+    model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
+    import hashlib
+    h = hashlib.sha256(test_prompt.strip().lower().encode("utf-8")).hexdigest()
+    cache_key = f"v{classifier_mod.CLASSIFIER_VERSION}:{model}:{h}"
+
+    assert cache_key in CLASSIFIER_CACHE
+    stored_time, stored_res = CLASSIFIER_CACHE[cache_key]
+    CLASSIFIER_CACHE[cache_key] = (stored_time - 90000, stored_res)
+
+    res2 = classify_prompt(test_prompt)
+    assert res2.classification == res1.classification
+    new_time, _ = CLASSIFIER_CACHE[cache_key]
+    assert new_time > stored_time
+

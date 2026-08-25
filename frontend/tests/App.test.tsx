@@ -200,6 +200,8 @@ describe("Prompt Classifier Frontend App", () => {
     await waitFor(() => {
       expect(screen.getByText(/WARNING: COGNITIVE OVERRELIANCE/i)).toBeInTheDocument();
       expect(screen.getByText(/risks automation bias/i)).toBeInTheDocument();
+      expect(screen.getByText(/Recommended Action:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Brainstorm 3 independent options/i)).toBeInTheDocument();
     });
 
     // Dismiss banner
@@ -209,4 +211,54 @@ describe("Prompt Classifier Frontend App", () => {
     // Verify dismissed
     expect(screen.queryByText(/WARNING: COGNITIVE OVERRELIANCE/i)).not.toBeInTheDocument();
   });
+
+  it("renders progressive reflection nudge when 3 consecutive convergent queries exist", async () => {
+    vi.spyOn(api, "getSessionHistory").mockResolvedValue({
+      session_id: "test-session-id",
+      history: [
+        { prompt: "Q1", classification: "convergent", subtype: "computation", confidence: 0.9, reasoning: "Math", created_at: new Date().toISOString() },
+        { prompt: "Q2", classification: "convergent", subtype: "factual_lookup", confidence: 0.9, reasoning: "Fact", created_at: new Date().toISOString() },
+        { prompt: "Q3", classification: "convergent", subtype: "code_debugging", confidence: 0.9, reasoning: "Code", created_at: new Date().toISOString() },
+      ],
+      session_summary: {
+        total_prompts: 3,
+        convergent_percentage: 100,
+        divergent_percentage: 0,
+        overreliance_score: 3,
+        overreliance_signal: "low",
+      },
+    });
+
+    await renderApp();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Progressive Reflection Nudge/i)).toBeInTheDocument();
+      expect(screen.getByText(/3 consecutive convergent queries/i)).toBeInTheDocument();
+    });
+  });
+
+  it("renders cognitive balance trend meter with correct percentages", async () => {
+    vi.spyOn(api, "getSessionHistory").mockResolvedValue({
+      session_id: "test-session-id",
+      history: [
+        { prompt: "Q1", classification: "convergent", subtype: "computation", confidence: 0.9, reasoning: "Math", created_at: new Date().toISOString() },
+        { prompt: "Q2", classification: "divergent", subtype: null, confidence: 0.9, reasoning: "Creative", created_at: new Date().toISOString() },
+      ],
+      session_summary: {
+        total_prompts: 2,
+        convergent_percentage: 50,
+        divergent_percentage: 50,
+        overreliance_score: 0,
+        overreliance_signal: "none",
+      },
+    });
+
+    await renderApp();
+
+    await waitFor(() => {
+      expect(screen.getByText("Focused Convergent (50%)")).toBeInTheDocument();
+      expect(screen.getByText("Open Divergent (50%)")).toBeInTheDocument();
+    });
+  });
 });
+
