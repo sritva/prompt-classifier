@@ -104,6 +104,33 @@ export const App: React.FC = () => {
     }
   };
 
+  const consecutiveConvergent = React.useMemo(() => {
+    let count = 0;
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].classification === "convergent") {
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }, [history]);
+
+  const actionableGuidance = React.useMemo(() => {
+    if (!summary || summary.overreliance_signal === "none") return null;
+    const recentSubtypes = history.slice(-5).map((h) => h.subtype);
+    if (recentSubtypes.includes("decision_making")) {
+      return "Brainstorm 3 independent options and write down their pros/cons before asking AI for a choice recommendation.";
+    }
+    if (recentSubtypes.includes("code_debugging")) {
+      return "Inspect the stack trace and isolate a minimal reproducing test case before requesting a direct code solution.";
+    }
+    if (recentSubtypes.includes("computation")) {
+      return "Estimate the calculation range manually to verify the magnitude of the result.";
+    }
+    return "Draft your own hypothesis first, then use AI to critique edge cases rather than accepting the initial answer.";
+  }, [summary, history]);
+
   const glyphState = latestResult
     ? latestResult.classification
     : "neutral";
@@ -162,15 +189,32 @@ export const App: React.FC = () => {
             </button>
           </div>
           <p className="banner-body">
-            You have submitted multiple convergent/decision-making prompts in the last 10 minutes (score: {summary.overreliance_score}). 
-            HCI research indicates that offloading personal choices and analytical reasoning to automated systems risks automation bias—substituting active critical thinking for machine output. 
-            Consider addressing these tasks directly using your own analytical judgment.
+            You have submitted multiple convergent prompts in the last 10 minutes (Score: {summary.overreliance_score}). 
+            HCI cognitive research demonstrates that automating analytical judgment risks automation bias.
           </p>
-          {latestResult?.reflection_prompt && (
-            <div className="banner-reflection-friction">
-              <strong>Reflective Friction Prompt:</strong> "{latestResult.reflection_prompt}"
+          {actionableGuidance && (
+            <div className="banner-guidance" style={{ borderLeft: "3px solid var(--color-warning-border)", paddingLeft: "0.75rem", marginTop: "0.5rem" }}>
+              <strong>Recommended Action:</strong> {actionableGuidance}
             </div>
           )}
+          {latestResult?.reflection_prompt && (
+            <div className="banner-reflection-friction">
+              <strong>Reflective Challenge:</strong> "{latestResult.reflection_prompt}"
+            </div>
+          )}
+        </section>
+      )}
+
+      {consecutiveConvergent >= 3 && !dismissedWarning && (
+        <section className="nudge-banner" id="progressive-nudge" style={{ backgroundColor: "#201D1A", border: "1px solid #7D5A2B", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "#D49B55", textTransform: "uppercase", fontWeight: "bold" }}>
+              Progressive Reflection Nudge ({consecutiveConvergent} consecutive convergent queries)
+            </span>
+          </div>
+          <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--color-text)", lineHeight: "1.4" }}>
+            Notice the streak of focused tasks. Try asking a divergent or exploratory question to balance your cognitive workflow.
+          </p>
         </section>
       )}
 
@@ -471,6 +515,17 @@ export const App: React.FC = () => {
               }}>
                 {summary.overreliance_score}
               </span>
+            </div>
+          </div>
+
+          <div className="trend-meter-container" style={{ margin: "1rem 0", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--color-muted)" }}>
+              <span>Focused Convergent ({summary.convergent_percentage}%)</span>
+              <span>Open Divergent ({summary.divergent_percentage}%)</span>
+            </div>
+            <div style={{ display: "flex", height: "8px", width: "100%", backgroundColor: "var(--color-border)", borderRadius: "4px", overflow: "hidden" }}>
+              <div style={{ width: `${summary.convergent_percentage}%`, backgroundColor: "var(--color-convergent)", transition: "width 0.3s ease" }} />
+              <div style={{ width: `${summary.divergent_percentage}%`, backgroundColor: "var(--color-divergent)", transition: "width 0.3s ease" }} />
             </div>
           </div>
 
