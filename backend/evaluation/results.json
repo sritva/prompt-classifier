@@ -1,20 +1,20 @@
 {
   "metrics": {
-    "overall_accuracy": 0.9333,
+    "overall_accuracy": 1.0,
     "class_accuracy": 1.0,
-    "subtype_accuracy": 0.9333,
+    "subtype_accuracy": 1.0,
     "classification": {
       "convergent": {
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 10
+        "support": 100
       },
       "divergent": {
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 5
+        "support": 20
       }
     },
     "subtype": {
@@ -22,36 +22,42 @@
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 3
+        "support": 20
       },
       "computation": {
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 2
+        "support": 20
       },
       "code_debugging": {
         "precision": 1.0,
-        "recall": 0.6667,
-        "f1": 0.8,
-        "support": 3
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 20
       },
       "decision_making": {
-        "precision": 0.6667,
+        "precision": 1.0,
         "recall": 1.0,
-        "f1": 0.8,
-        "support": 2
+        "f1": 1.0,
+        "support": 20
+      },
+      "other": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 20
       },
       "None": {
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 5
+        "support": 20
       }
     },
     "latency_ms": {
-      "p50": 0.346,
-      "p95": 32.453
+      "p50": 0.13,
+      "p95": 0.222
     }
   },
   "traces": {
@@ -62,8 +68,8 @@
       {
         "session_id": "trace_healthy_balanced_1",
         "expected_signal": "none",
-        "predicted_signal": "low",
-        "score": 2
+        "predicted_signal": "none",
+        "score": 1
       },
       {
         "session_id": "trace_healthy_mixed_2",
@@ -86,23 +92,10 @@
       {
         "session_id": "trace_healthy_ambiguous_low_conf_3",
         "expected_signal": "none",
-        "predicted_signal": "low",
-        "score": 2
+        "predicted_signal": "none",
+        "score": 1
       }
     ]
   },
-  "misclassified": [
-    {
-      "prompt": "Should I write a while loop or a for loop for this list traversal?",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "code_debugging"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "decision_making",
-        "confidence": 0.9199999999999999
-      }
-    }
-  ]
+  "misclassified": []
 }

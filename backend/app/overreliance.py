@@ -6,19 +6,6 @@ class OverrelianceResult(TypedDict):
     signal: Literal["high", "moderate", "low", "none"]
 
 def calculate_overreliance(history: list, reference_time: datetime | None = None) -> OverrelianceResult:
-    """
-    Calculates the overreliance score within a 10-minute rolling window.
-    - decision_making: +3 points
-    - code_debugging: +2 points
-    - computation, factual_lookup, other (convergent): +1 point each
-    - divergent: -1 point each (floor of 0)
-    
-    Thresholds:
-    - >= 8: high
-    - >= 5: moderate
-    - >= 2: low
-    - < 2: none
-    """
     if reference_time is None:
         reference_time = datetime.now(timezone.utc)
         
@@ -26,7 +13,7 @@ def calculate_overreliance(history: list, reference_time: datetime | None = None
         reference_time = reference_time.replace(tzinfo=timezone.utc)
         
     cutoff = reference_time - timedelta(minutes=10)
-    score = 0
+    raw_score = 0.0
     
     for record in history:
         created_at = record.created_at
@@ -34,18 +21,21 @@ def calculate_overreliance(history: list, reference_time: datetime | None = None
             created_at = created_at.replace(tzinfo=timezone.utc)
             
         if created_at >= cutoff:
+            confidence = getattr(record, "confidence", 1.0)
+            if confidence is None:
+                confidence = 1.0
+                
             if record.classification == "convergent":
                 if record.subtype == "decision_making":
-                    score += 3
+                    raw_score += 3.0 * confidence
                 elif record.subtype == "code_debugging":
-                    score += 2
+                    raw_score += 2.0 * confidence
                 else:
-                    score += 1
+                    raw_score += 1.0 * confidence
             elif record.classification == "divergent":
-                score -= 1
+                raw_score -= 1.0
 
-    if score < 0:
-        score = 0
+    score = int(round(max(0.0, raw_score)))
         
     if score >= 8:
         signal = "high"
@@ -60,3 +50,4 @@ def calculate_overreliance(history: list, reference_time: datetime | None = None
         "score": score,
         "signal": signal
     }
+
