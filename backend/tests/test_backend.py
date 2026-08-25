@@ -324,6 +324,46 @@ def test_prompt_caching(mock_openai_class):
     assert res1 == res2
     assert mock_client.beta.chat.completions.parse.call_count == 1
 
+@patch("app.classifier.OpenAI")
+def test_cache_invalidation_on_version_bump(mock_openai_class):
+    from app.classifier import CLASSIFIER_CACHE
+    import app.classifier as classifier_module
+    from app import session_store
+    
+    CLASSIFIER_CACHE.clear()
+    mock_client = MagicMock()
+    mock_openai_class.return_value = mock_client
+    
+    mock_parsed_result = PromptClassificationResult(
+        classification="convergent",
+        confidence=0.9,
+        reasoning="Factual query.",
+        subtype="factual_lookup"
+    )
+    mock_choice = MagicMock()
+    mock_choice.message.parsed = mock_parsed_result
+    mock_response = MagicMock()
+    mock_response.choices = [mock_choice]
+    mock_client.beta.chat.completions.parse.return_value = mock_response
+
+    test_prompt = "What is the capital of Mars?"
+    session_store.add_prompt_record(
+        session_id="test-cache-sess.sig",
+        prompt=test_prompt,
+        classification="convergent",
+        subtype="other",
+        confidence=0.5,
+        reasoning="Old version classification",
+        classifier_version="1.0.0"
+    )
+    
+    with patch.dict(os.environ, {"LLM_API_KEY": "sk-real-key-placeholder"}):
+        res = classifier_module.classify_prompt(test_prompt)
+        
+    assert res.subtype == "factual_lookup"
+    assert mock_client.beta.chat.completions.parse.call_count == 1
+
+
 
 def test_api_session_creation(client):
     response = client.post("/api/session")

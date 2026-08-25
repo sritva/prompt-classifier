@@ -24,8 +24,9 @@ class PromptRecord(Base):
     reasoning = Column(String, nullable=False)
     latency_ms = Column(Integer, nullable=True)
     total_tokens = Column(Integer, nullable=True)
-    explanation_details = Column(String, nullable=True)  # JSON-serialized string
+    explanation_details = Column(String, nullable=True)
     reflection_prompt = Column(String, nullable=True)
+    classifier_version = Column(String, nullable=True, default="2.0.0")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     session = relationship("Session", back_populates="records")

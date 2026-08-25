@@ -8,13 +8,19 @@ from .models import Base, Session as DBSession, PromptRecord
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./prompt_classifier.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    if os.getenv("VERCEL"):
+        DATABASE_URL = "sqlite:////tmp/prompt_classifier.db"
+    else:
+        DATABASE_URL = "sqlite:///./prompt_classifier.db"
 
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
 
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
+Base.metadata.create_all(bind=engine)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_or_create_session(session_id: str) -> DBSession:
@@ -41,7 +47,8 @@ def add_prompt_record(
     latency_ms: int | None = None,
     total_tokens: int | None = None,
     explanation_details: str | None = None,
-    reflection_prompt: str | None = None
+    reflection_prompt: str | None = None,
+    classifier_version: str | None = "2.0.0"
 ) -> PromptRecord:
     get_or_create_session(session_id)
     db = SessionLocal()
@@ -57,6 +64,7 @@ def add_prompt_record(
             total_tokens=total_tokens,
             explanation_details=explanation_details,
             reflection_prompt=reflection_prompt,
+            classifier_version=classifier_version,
             created_at=datetime.now(timezone.utc)
         )
         db.add(record)
@@ -90,18 +98,27 @@ def clear_session_history(session_id: str) -> None:
     finally:
         db.close()
 
-def get_cached_prompt_record(prompt: str) -> PromptRecord | None:
+def get_cached_prompt_record(
+    prompt: str,
+    classifier_version: str | None = "2.0.0",
+    max_age_seconds: int = 86400
+) -> PromptRecord | None:
     db = SessionLocal()
     try:
         from sqlalchemy import func
         normalized = prompt.strip().lower()
-        record = (
-            db.query(PromptRecord)
-            .filter(func.lower(func.trim(PromptRecord.prompt)) == normalized)
-            .order_by(PromptRecord.created_at.desc())
-            .first()
+        query = db.query(PromptRecord).filter(
+            func.lower(func.trim(PromptRecord.prompt)) == normalized
         )
+        if classifier_version is not None:
+            query = query.filter(PromptRecord.classifier_version == classifier_version)
+            
+        record = query.order_by(PromptRecord.created_at.desc()).first()
         if record:
+            if record.created_at:
+                age = (datetime.now(timezone.utc) - record.created_at.replace(tzinfo=timezone.utc)).total_seconds()
+                if age > max_age_seconds:
+                    return None
             db.expunge(record)
         return record
     finally:

@@ -10,6 +10,8 @@ from openai import OpenAI
 logger = logging.getLogger("prompt_classifier")
 logging.basicConfig(level=logging.INFO)
 
+CLASSIFIER_VERSION = "2.0.0"
+CACHE_TTL_SECONDS = 86400
 CONFIDENCE_THRESHOLD = 0.6
 
 CLASSIFIER_CACHE = {}
@@ -251,23 +253,29 @@ def _extract_tokens(response) -> Optional[int]:
         return None
 
 def classify_prompt(prompt: str) -> PromptClassificationResult:
-    """
-    Main entry point for prompt classification. Checks for LLM_API_KEY in environment.
-    Connects to LLM_BASE_URL (supporting any OpenAI-API-compatible provider) and uses CLASSIFIER_MODEL.
-    """
     normalized = prompt.strip().lower()
     prompt_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-    if prompt_hash in CLASSIFIER_CACHE:
-        logger.info(f"Cache hit for prompt classification: '{normalized}'")
-        return CLASSIFIER_CACHE[prompt_hash]
+    model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
+    cache_key = f"v{CLASSIFIER_VERSION}:{model}:{prompt_hash}"
+    
+    if cache_key in CLASSIFIER_CACHE:
+        cached_time, cached_result = CLASSIFIER_CACHE[cache_key]
+        if time.time() - cached_time < CACHE_TTL_SECONDS:
+            logger.info(f"In-memory cache hit: '{normalized}'")
+            return cached_result
+        else:
+            del CLASSIFIER_CACHE[cache_key]
 
-    # Check database-backed persistent cache
     try:
         from . import session_store
         import json
-        cached_record = session_store.get_cached_prompt_record(prompt)
+        cached_record = session_store.get_cached_prompt_record(
+            prompt,
+            classifier_version=CLASSIFIER_VERSION,
+            max_age_seconds=CACHE_TTL_SECONDS
+        )
         if cached_record:
-            logger.info(f"Database cache hit for prompt classification: '{normalized}'")
+            logger.info(f"Database cache hit: '{normalized}'")
             explanation_details = None
             if cached_record.explanation_details:
                 try:
@@ -285,14 +293,12 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                 latency_ms=0,
                 total_tokens=0
             )
-            # Store in in-memory cache
-            CLASSIFIER_CACHE[prompt_hash] = result
+            CLASSIFIER_CACHE[cache_key] = (time.time(), result)
             if len(CLASSIFIER_CACHE) > MAX_CACHE_SIZE:
                 CLASSIFIER_CACHE.pop(next(iter(CLASSIFIER_CACHE)))
             return result
     except Exception as e:
         logger.warning(f"Database cache lookup failed: {e}")
-
 
     api_key = os.getenv("LLM_API_KEY")
     if not api_key or api_key.strip() == "" or api_key.startswith("your-") or api_key == "placeholder":
@@ -300,7 +306,6 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
         return classify_heuristically(prompt)
 
     base_url = os.getenv("LLM_BASE_URL")
-    model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
 
     client_args = {"api_key": api_key}
     if base_url:
@@ -356,8 +361,7 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                     parsed.latency_ms = latency_ms
                     parsed.total_tokens = _extract_tokens(response)
                     
-                    # Cache successful result
-                    CLASSIFIER_CACHE[prompt_hash] = parsed
+                    CLASSIFIER_CACHE[cache_key] = (time.time(), parsed)
                     if len(CLASSIFIER_CACHE) > MAX_CACHE_SIZE:
                         CLASSIFIER_CACHE.pop(next(iter(CLASSIFIER_CACHE)))
                         
@@ -396,8 +400,7 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                 parsed.latency_ms = latency_ms
                 parsed.total_tokens = _extract_tokens(response)
                 
-                # Cache successful result
-                CLASSIFIER_CACHE[prompt_hash] = parsed
+                CLASSIFIER_CACHE[cache_key] = (time.time(), parsed)
                 if len(CLASSIFIER_CACHE) > MAX_CACHE_SIZE:
                     CLASSIFIER_CACHE.pop(next(iter(CLASSIFIER_CACHE)))
                     
@@ -407,3 +410,4 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
             last_error = e
             
     raise ValueError(f"LLM classification failed after retrying. Error: {last_error}")
+
