@@ -1,9 +1,10 @@
 import os
 import sys
 import json
+import time
 import argparse
+import statistics
 
-# Ensure parent directory is in sys.path to import app.classifier
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.classifier import classify_heuristically
@@ -63,15 +64,19 @@ def evaluate_file(dataset_path):
     y_pred_class = []
     y_true_subtype = []
     y_pred_subtype = []
-    
+    latencies = []
     misclassified = []
     
     for item in prompts:
         prompt_text = item["prompt"]
         expected_class = item["expected_classification"]
-        expected_subtype = item["expected_subtype"]
+        expected_subtype = item.get("expected_subtype")
         
+        t0 = time.perf_counter()
         result = classify_heuristically(prompt_text)
+        duration_ms = (time.perf_counter() - t0) * 1000.0
+        latencies.append(duration_ms)
+        
         pred_class = result.classification
         pred_subtype = None if pred_class == "divergent" else result.subtype
         
@@ -91,11 +96,11 @@ def evaluate_file(dataset_path):
                 },
                 "actual": {
                     "classification": pred_class,
-                    "subtype": pred_subtype
+                    "subtype": pred_subtype,
+                    "confidence": result.confidence
                 }
             })
             
-    # Calculate overall accuracy
     correct_class = sum(1 for t, p in zip(y_true_class, y_pred_class) if t == p)
     correct_subtype = sum(1 for t, p in zip(y_true_subtype, y_pred_subtype) if t == p)
     correct_overall = sum(
@@ -103,9 +108,10 @@ def evaluate_file(dataset_path):
         if tc == pc and ts == ps
     )
     
-    overall_accuracy = correct_overall / len(prompts)
-    class_accuracy = correct_class / len(prompts)
-    subtype_accuracy = correct_subtype / len(prompts)
+    total = len(prompts) if prompts else 1
+    overall_accuracy = correct_overall / total
+    class_accuracy = correct_class / total
+    subtype_accuracy = correct_subtype / total
     
     class_labels = ["convergent", "divergent"]
     subtype_labels = ["factual_lookup", "computation", "code_debugging", "decision_making", "other", None]
@@ -116,13 +122,20 @@ def evaluate_file(dataset_path):
     class_cm = build_confusion_matrix(y_true_class, y_pred_class, class_labels)
     subtype_cm = build_confusion_matrix(y_true_subtype, y_pred_subtype, subtype_labels)
     
+    p50_latency = round(statistics.median(latencies), 3) if latencies else 0.0
+    p95_latency = round(statistics.quantiles(latencies, n=20)[18], 3) if len(latencies) >= 20 else round(max(latencies or [0.0]), 3)
+    
     return {
         "metrics": {
             "overall_accuracy": round(overall_accuracy, 4),
             "class_accuracy": round(class_accuracy, 4),
             "subtype_accuracy": round(subtype_accuracy, 4),
             "classification": class_metrics,
-            "subtype": subtype_metrics
+            "subtype": subtype_metrics,
+            "latency_ms": {
+                "p50": p50_latency,
+                "p95": p95_latency
+            }
         },
         "confusion_matrices": {
             "classification": class_cm,
@@ -132,12 +145,56 @@ def evaluate_file(dataset_path):
         "total_prompts": len(prompts)
     }
 
-def print_report(results, filename):
+def verify_against_targets(results, targets_path):
+    if not os.path.exists(targets_path):
+        return []
+        
+    with open(targets_path, "r", encoding="utf-8") as f:
+        targets = json.load(f)
+        
+    checks = []
+    
+    acc_targets = targets.get("accuracy", {})
+    overall_acc = results["metrics"]["overall_accuracy"]
+    min_overall = acc_targets.get("overall_accuracy", 0.90)
+    checks.append({
+        "name": "Overall Accuracy",
+        "target": f">={min_overall:.2%}",
+        "actual": f"{overall_acc:.2%}",
+        "passed": overall_acc >= min_overall
+    })
+    
+    subtype_targets = targets.get("subtypes", {})
+    if "factual_lookup" in subtype_targets:
+        target_fl_recall = subtype_targets["factual_lookup"].get("recall", 0.92)
+        fl_metrics = results["metrics"]["subtype"].get("factual_lookup", {})
+        actual_fl_recall = fl_metrics.get("recall", 0.0)
+        checks.append({
+            "name": "Factual Lookup Recall",
+            "target": f">={target_fl_recall:.2%}",
+            "actual": f"{actual_fl_recall:.2%}",
+            "passed": actual_fl_recall >= target_fl_recall
+        })
+        
+    latency_targets = targets.get("latency_ms", {})
+    max_p50 = latency_targets.get("heuristic_p50_max", 2.0)
+    actual_p50 = results["metrics"]["latency_ms"]["p50"]
+    checks.append({
+        "name": "Latency p50",
+        "target": f"<={max_p50:.1f}ms",
+        "actual": f"{actual_p50:.2f}ms",
+        "passed": actual_p50 <= max_p50
+    })
+
+    return checks
+
+def print_report(results, filename, checks=None):
     print(f"\n================ EVALUATION RESULTS ({filename}) ================")
     print(f"Total Prompts:                   {results['total_prompts']}")
     print(f"Overall Accuracy (Both correct): {results['metrics']['overall_accuracy'] * 100:.2f}%")
     print(f"Classification Accuracy:         {results['metrics']['class_accuracy'] * 100:.2f}%")
     print(f"Subtype Accuracy:                {results['metrics']['subtype_accuracy'] * 100:.2f}%")
+    print(f"Latency p50 / p95:               {results['metrics']['latency_ms']['p50']}ms / {results['metrics']['latency_ms']['p95']}ms")
     print(f"Total Misclassified:             {len(results['misclassified'])}")
     print("======================================================")
     
@@ -157,13 +214,19 @@ def print_report(results, filename):
     
     print("\n--- Subtype Confusion Matrix ---")
     print_confusion_matrix(results["confusion_matrices"]["subtype"], subtype_labels)
+    
+    if checks:
+        print("\n--- Target Gate Check ---")
+        for c in checks:
+            status = "PASS" if c["passed"] else "FAIL"
+            print(f"[{status}] {c['name']:<25} | Target: {c['target']:<10} | Actual: {c['actual']:<10}")
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate Prompt Heuristics")
     parser.add_argument("--dataset", default="dataset.jsonl", help="Dataset path relative to evaluate.py or absolute")
+    parser.add_argument("--check-targets", action="store_true", help="Fail with non-zero code if targets not met")
     args = parser.parse_args()
     
-    # Resolve target dataset path
     target_filename = args.dataset
     if not os.path.isabs(target_filename):
         target_path = os.path.join(os.path.dirname(__file__), target_filename)
@@ -177,43 +240,20 @@ def main():
         
     target_results = evaluate_file(target_path)
     
-    # Save target results to results.json
+    targets_json_path = os.path.join(os.path.dirname(__file__), "targets.json")
+    checks = verify_against_targets(target_results, targets_json_path)
+    
     results_json_path = os.path.join(os.path.dirname(__file__), "results.json")
     with open(results_json_path, "w", encoding="utf-8") as f:
         json.dump(target_results, f, indent=2)
         
-    # Print target dataset report
-    print_report(target_results, target_filename)
+    print_report(target_results, target_filename, checks)
     print(f"\nResults saved to: {results_json_path}")
-    print(f"Misclassified examples count: {len(target_results['misclassified'])}")
     
-    # Check if we can display side-by-side comparison of train vs holdout
-    train_path = os.path.join(os.path.dirname(__file__), "dataset_train.jsonl")
-    if not os.path.exists(train_path):
-        train_path = os.path.join(os.path.dirname(__file__), "dataset.jsonl")
-    holdout_path = os.path.join(os.path.dirname(__file__), "dataset_holdout.jsonl")
-    
-    if os.path.exists(train_path) and os.path.exists(holdout_path):
-        train_results = evaluate_file(train_path)
-        holdout_results = evaluate_file(holdout_path)
-        
-        print("\n=================== DATASET COMPARISON ===================")
-        print(f"{'Metric / Subtype':<25} | {'Original (Train) (' + str(train_results['total_prompts']) + ')':<20} | {'Holdout (' + str(holdout_results['total_prompts']) + ')':<20}")
-        print("-" * 75)
-        
-        # Overall accuracy
-        train_acc = train_results["metrics"]["overall_accuracy"]
-        holdout_acc = holdout_results["metrics"]["overall_accuracy"]
-        print(f"{'Overall Accuracy':<25} | {train_acc * 100:.2f}% | {holdout_acc * 100:.2f}%")
-        
-        # Factual lookup metrics
-        train_fl = train_results["metrics"]["subtype"].get("factual_lookup", {"precision": 0, "recall": 0, "f1": 0})
-        holdout_fl = holdout_results["metrics"]["subtype"].get("factual_lookup", {"precision": 0, "recall": 0, "f1": 0})
-        
-        print(f"{'Factual Precision':<25} | {train_fl['precision']:.4f} | {holdout_fl['precision']:.4f}")
-        print(f"{'Factual Recall':<25} | {train_fl['recall']:.4f} | {holdout_fl['recall']:.4f}")
-        print(f"{'Factual F1-Score':<25} | {train_fl['f1']:.4f} | {holdout_fl['f1']:.4f}")
-        print("==========================================================")
+    if args.check_targets and checks and any(not c["passed"] for c in checks):
+        print("\nFailure: One or more evaluation targets were not met.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
+

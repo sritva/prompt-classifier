@@ -1,66 +1,100 @@
 {
   "metrics": {
-    "overall_accuracy": 0.5278,
+    "overall_accuracy": 0.9567,
     "class_accuracy": 1.0,
-    "subtype_accuracy": 0.5278,
+    "subtype_accuracy": 0.9567,
     "classification": {
       "convergent": {
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 36
+        "support": 240
+      },
+      "divergent": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 60
       }
     },
     "subtype": {
       "factual_lookup": {
         "precision": 1.0,
-        "recall": 0.5278,
-        "f1": 0.6909,
-        "support": 36
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 60
+      },
+      "computation": {
+        "precision": 1.0,
+        "recall": 0.9,
+        "f1": 0.9474,
+        "support": 60
+      },
+      "code_debugging": {
+        "precision": 0.9077,
+        "recall": 0.9833,
+        "f1": 0.944,
+        "support": 60
+      },
+      "decision_making": {
+        "precision": 1.0,
+        "recall": 0.9,
+        "f1": 0.9474,
+        "support": 60
+      },
+      "None": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 60
       }
+    },
+    "latency_ms": {
+      "p50": 0.184,
+      "p95": 0.823
     }
   },
   "confusion_matrices": {
     "classification": {
       "convergent": {
-        "convergent": 36,
+        "convergent": 240,
         "divergent": 0
       },
       "divergent": {
         "convergent": 0,
-        "divergent": 0
+        "divergent": 60
       }
     },
     "subtype": {
       "factual_lookup": {
-        "factual_lookup": 19,
-        "computation": 0,
-        "code_debugging": 0,
-        "decision_making": 0,
-        "other": 17,
-        "None": 0
-      },
-      "computation": {
-        "factual_lookup": 0,
+        "factual_lookup": 60,
         "computation": 0,
         "code_debugging": 0,
         "decision_making": 0,
         "other": 0,
+        "None": 0
+      },
+      "computation": {
+        "factual_lookup": 0,
+        "computation": 54,
+        "code_debugging": 0,
+        "decision_making": 0,
+        "other": 6,
         "None": 0
       },
       "code_debugging": {
         "factual_lookup": 0,
         "computation": 0,
-        "code_debugging": 0,
+        "code_debugging": 59,
         "decision_making": 0,
-        "other": 0,
+        "other": 1,
         "None": 0
       },
       "decision_making": {
         "factual_lookup": 0,
         "computation": 0,
-        "code_debugging": 0,
-        "decision_making": 0,
+        "code_debugging": 6,
+        "decision_making": 54,
         "other": 0,
         "None": 0
       },
@@ -78,198 +112,167 @@
         "code_debugging": 0,
         "decision_making": 0,
         "other": 0,
-        "None": 0
+        "None": 60
       }
     }
   },
   "misclassified": [
     {
-      "prompt": "Who composed the Magic Flute opera?",
+      "prompt": "What is the square root of 144?",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "computation"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "other",
+        "confidence": 0.6
       }
     },
     {
-      "prompt": "Who sculpted the Statue of David?",
+      "prompt": "What is 100 divided by 4?",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "computation"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "other",
+        "confidence": 0.6
       }
     },
     {
-      "prompt": "Who directed the film Inception?",
+      "prompt": "What is the cube root of 27?",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "computation"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "other",
+        "confidence": 0.6
       }
     },
     {
-      "prompt": "Who choreographed the Nutcracker ballet?",
+      "prompt": "What is the square of 15?",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "computation"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "other",
+        "confidence": 0.6
       }
     },
     {
-      "prompt": "Who engineered the Golden Gate Bridge?",
+      "prompt": "What is 500 divided by 20?",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "computation"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "other",
+        "confidence": 0.6
       }
     },
     {
-      "prompt": "What is the freezing point of mercury?",
+      "prompt": "What is the square root of 256?",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "computation"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "other",
+        "confidence": 0.6
       }
     },
     {
-      "prompt": "What is the lifespan of a housefly?",
+      "prompt": "Why am I getting a NullPointerException in Java?",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "code_debugging"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "other",
+        "confidence": 0.6
       }
     },
     {
-      "prompt": "What is the escape velocity of Earth?",
+      "prompt": "Choose between learning Python or JavaScript for web development",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "decision_making"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "code_debugging",
+        "confidence": 0.85
       }
     },
     {
-      "prompt": "What is the carrying capacity of a Boeing 747?",
+      "prompt": "Help me decide between React and Vue for my next project",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "decision_making"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "code_debugging",
+        "confidence": 0.85
       }
     },
     {
-      "prompt": "What is the focal length of a standard portrait lens?",
+      "prompt": "Help me decide: Python or R for statistical analysis?",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "decision_making"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "code_debugging",
+        "confidence": 0.85
       }
     },
     {
-      "prompt": "How deep is the Mariana Trench?",
+      "prompt": "Choose between using Tailwind CSS or standard Vanilla CSS",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "decision_making"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "code_debugging",
+        "confidence": 0.85
       }
     },
     {
-      "prompt": "Identify the first element on the periodic table.",
+      "prompt": "Help me decide: should I use TypeScript or JavaScript for node?",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "decision_making"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
+        "subtype": "code_debugging",
+        "confidence": 0.85
       }
     },
     {
-      "prompt": "Specify the location of the ancient city of Petra.",
+      "prompt": "Choose between learning Django or FastAPI for Python web development",
       "expected": {
         "classification": "convergent",
-        "subtype": "factual_lookup"
+        "subtype": "decision_making"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other"
-      }
-    },
-    {
-      "prompt": "Name the writer of Sherlock Holmes.",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "factual_lookup"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "other"
-      }
-    },
-    {
-      "prompt": "State the chemical composition of bronze.",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "factual_lookup"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "other"
-      }
-    },
-    {
-      "prompt": "Define the term photosynthesis.",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "factual_lookup"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "other"
-      }
-    },
-    {
-      "prompt": "List the base units of the SI system.",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "factual_lookup"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "other"
+        "subtype": "code_debugging",
+        "confidence": 0.85
       }
     }
   ],
-  "total_prompts": 36
+  "total_prompts": 300
 }

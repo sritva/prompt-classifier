@@ -87,6 +87,19 @@ async def custom_404_handler(request: Request, exc: Exception):
         content={"error": "Not Found", "message": "The requested API endpoint does not exist."}
     )
 
+import traceback
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print("=== GLOBAL EXCEPTION HANDLER ===")
+    traceback.print_exc()
+    print("================================")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"}
+    )
+
+
 # Secure Session ID Signing Configuration
 SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev-secret-key-change-in-production-1234567890")
 

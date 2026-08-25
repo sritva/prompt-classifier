@@ -45,7 +45,8 @@ export async function classifyPrompt(prompt: string, sessionId: string): Promise
 export async function getSessionHistory(sessionId: string): Promise<SessionHistoryResponse> {
   const response = await fetch(`${API_BASE}/api/session/${sessionId}`);
   if (!response.ok) {
-    throw new Error(`Failed to load history: ${response.status}`);
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.detail || `Failed to load history: ${response.status}`);
   }
   return response.json();
 }
@@ -55,6 +56,8 @@ export async function clearSessionHistory(sessionId: string): Promise<void> {
     method: "DELETE",
   });
   if (!response.ok) {
-    throw new Error(`Failed to clear session: ${response.status}`);
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.detail || `Failed to clear session: ${response.status}`);
   }
 }
+

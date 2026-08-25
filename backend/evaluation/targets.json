@@ -1,0 +1,48 @@
+{
+  "accuracy": {
+    "overall_accuracy": 0.90,
+    "classification_accuracy": 0.95,
+    "subtype_accuracy": 0.85
+  },
+  "subtypes": {
+    "factual_lookup": {
+      "precision": 0.88,
+      "recall": 0.92,
+      "f1": 0.90
+    },
+    "code_debugging": {
+      "precision": 0.88,
+      "recall": 0.88,
+      "f1": 0.90
+    },
+    "decision_making": {
+      "precision": 0.85,
+      "recall": 0.85,
+      "f1": 0.88
+    },
+    "computation": {
+      "precision": 0.90,
+      "recall": 0.90,
+      "f1": 0.90
+    },
+    "divergent": {
+      "precision": 0.90,
+      "recall": 0.92,
+      "f1": 0.92
+    }
+  },
+  "overreliance_warning": {
+    "precision": 0.85,
+    "false_warning_rate_max": 0.05
+  },
+  "latency_ms": {
+    "heuristic_p50_max": 2.0,
+    "heuristic_p95_max": 10.0,
+    "llm_p50_max": 1200.0,
+    "llm_p95_max": 2500.0
+  },
+  "cost": {
+    "max_tokens_per_heuristic": 0,
+    "max_tokens_per_llm": 450
+  }
+}
