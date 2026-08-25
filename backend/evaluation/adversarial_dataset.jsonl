@@ -1,0 +1,15 @@
+{"prompt": "Write a funny poem about debugging an infinite while loop in Python.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Should I write a while loop or a for loop for this list traversal?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Calculate 15 * 4 then decide if that exceeds my monthly budget.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "What is the history behind the invention of the JavaScript language?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Brainstorm 5 creative ideas for a story about solving a math equation.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Is Python or JavaScript better for building scalable microservices in our company?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Who is the author of the poem 'The Raven'?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Draft a creative story about a programmer who meets an artificial intelligence.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Why does my function return 42 when I expect 0?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Help me decide between buying a MacBook Pro or a ThinkPad for programming.", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "How many seconds are in 3 hours and 45 minutes?", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Imagine a world where algorithms rule judicial decisions.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Identify the bug in: def factorial(n): return n * factorial(n-1) when n == 0.", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "What is the distance between London and Tokyo in kilometers?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Suggest 3 unique design metaphors for explaining recursion to children.", "expected_classification": "divergent", "expected_subtype": null}

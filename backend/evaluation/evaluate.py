@@ -188,7 +188,70 @@ def verify_against_targets(results, targets_path):
 
     return checks
 
-def print_report(results, filename, checks=None):
+def evaluate_traces_file(traces_path):
+    if not os.path.exists(traces_path):
+        return None
+        
+    from datetime import datetime, timezone, timedelta
+    from app.overreliance import calculate_overreliance
+    from app.models import PromptRecord
+    
+    traces = []
+    with open(traces_path, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                traces.append(json.loads(line))
+                
+    now = datetime.now(timezone.utc)
+    tp, fp, tn, fn = 0, 0, 0, 0
+    results = []
+    
+    for trace in traces:
+        records = []
+        for p in trace["prompts"]:
+            t = now - timedelta(minutes=p.get("offset_minutes", 1))
+            res = classify_heuristically(p["prompt"])
+            records.append(PromptRecord(
+                classification=res.classification,
+                subtype=res.subtype,
+                confidence=res.confidence,
+                created_at=t
+            ))
+            
+        ov_result = calculate_overreliance(records, reference_time=now)
+        predicted_signal = ov_result["signal"]
+        expected_signal = trace["expected_signal"]
+        
+        has_warning_pred = predicted_signal in ["moderate", "high"]
+        has_warning_exp = expected_signal in ["moderate", "high"]
+        
+        if has_warning_pred and has_warning_exp:
+            tp += 1
+        elif has_warning_pred and not has_warning_exp:
+            fp += 1
+        elif not has_warning_pred and not has_warning_exp:
+            tn += 1
+        else:
+            fn += 1
+            
+        results.append({
+            "session_id": trace["session_id"],
+            "expected_signal": expected_signal,
+            "predicted_signal": predicted_signal,
+            "score": ov_result["score"]
+        })
+        
+    precision = tp / (tp + fp) if (tp + fp) > 0 else (1.0 if fn == 0 else 0.0)
+    false_warning_rate = fp / (fp + tn) if (fp + tn) > 0 else 0.0
+    
+    return {
+        "precision": round(precision, 4),
+        "false_warning_rate": round(false_warning_rate, 4),
+        "total_traces": len(traces),
+        "trace_results": results
+    }
+
+def print_report(results, filename, checks=None, traces_result=None):
     print(f"\n================ EVALUATION RESULTS ({filename}) ================")
     print(f"Total Prompts:                   {results['total_prompts']}")
     print(f"Overall Accuracy (Both correct): {results['metrics']['overall_accuracy'] * 100:.2f}%")
@@ -215,6 +278,12 @@ def print_report(results, filename, checks=None):
     print("\n--- Subtype Confusion Matrix ---")
     print_confusion_matrix(results["confusion_matrices"]["subtype"], subtype_labels)
     
+    if traces_result:
+        print("\n--- Overreliance Warning Performance ---")
+        print(f"Alert Precision:    {traces_result['precision'] * 100:.2f}%")
+        print(f"False Warning Rate: {traces_result['false_warning_rate'] * 100:.2f}%")
+        print(f"Total Traces:       {traces_result['total_traces']}")
+    
     if checks:
         print("\n--- Target Gate Check ---")
         for c in checks:
@@ -223,7 +292,8 @@ def print_report(results, filename, checks=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate Prompt Heuristics")
-    parser.add_argument("--dataset", default="dataset.jsonl", help="Dataset path relative to evaluate.py or absolute")
+    parser.add_argument("--dataset", default="benchmark_dataset.jsonl", help="Dataset path relative to evaluate.py or absolute")
+    parser.add_argument("--traces", default="session_traces.jsonl", help="Session traces dataset path")
     parser.add_argument("--check-targets", action="store_true", help="Fail with non-zero code if targets not met")
     args = parser.parse_args()
     
@@ -235,19 +305,30 @@ def main():
         target_filename = os.path.basename(target_filename)
         
     if not os.path.exists(target_path):
-        print(f"Error: Target dataset file not found at {target_path}")
-        sys.exit(1)
+        target_path = os.path.join(os.path.dirname(__file__), "dataset.jsonl")
+        target_filename = "dataset.jsonl"
         
     target_results = evaluate_file(target_path)
+    
+    traces_filename = args.traces
+    if not os.path.isabs(traces_filename):
+        traces_path = os.path.join(os.path.dirname(__file__), traces_filename)
+    else:
+        traces_path = traces_filename
+    traces_result = evaluate_traces_file(traces_path) if os.path.exists(traces_path) else None
     
     targets_json_path = os.path.join(os.path.dirname(__file__), "targets.json")
     checks = verify_against_targets(target_results, targets_json_path)
     
     results_json_path = os.path.join(os.path.dirname(__file__), "results.json")
     with open(results_json_path, "w", encoding="utf-8") as f:
-        json.dump(target_results, f, indent=2)
+        json.dump({
+            "metrics": target_results["metrics"],
+            "traces": traces_result,
+            "misclassified": target_results["misclassified"]
+        }, f, indent=2)
         
-    print_report(target_results, target_filename, checks)
+    print_report(target_results, target_filename, checks, traces_result)
     print(f"\nResults saved to: {results_json_path}")
     
     if args.check_targets and checks and any(not c["passed"] for c in checks):
@@ -256,4 +337,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

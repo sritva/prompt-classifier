@@ -1,0 +1,120 @@
+{"prompt": "What is the capital of Australia?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who composed the Magic Flute opera?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who sculpted the Statue of David?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who directed the film Inception?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who choreographed the Nutcracker ballet?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who engineered the Golden Gate Bridge?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Who designed the Eiffel Tower?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the freezing point of mercury?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the average height of a giraffe?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the lifespan of a housefly?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the escape velocity of Earth?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "What is the chemical symbol for potassium?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "In what year did World War I begin?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "How many bones are in the adult human body?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Identify the first element on the periodic table.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Name the author of Don Quixote.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "State the speed of sound in dry air at 20 degrees Celsius.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Define the term mitochondria.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "List the base units of the International System of Units.", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Where is the headquarters of the United Nations located?", "expected_classification": "convergent", "expected_subtype": "factual_lookup"}
+{"prompt": "Calculate 45 * 12 + 180", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Solve for x: 3x - 15 = 45", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "What is the square root of 1764?", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Compute the compound interest on $10,000 at 5% annually for 4 years.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "What is 15% of 850?", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Evaluate the integral of 2x dx from 0 to 5.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Calculate the perimeter of a rectangle with length 14cm and width 9cm.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "What is 2 raised to the 10th power?", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Find the average of 88, 92, 79, 95, and 100.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Convert 72 degrees Fahrenheit to Celsius.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Calculate the hypotenuse of a right triangle with legs of 6 and 8.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "What is the factorial of 7?", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Divide 1500 by 25 and multiply by 4.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Compute the determinant of matrix [[2, 3], [1, 4]].", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "What is the median of [12, 5, 8, 19, 21, 14]?", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Calculate the volume of a sphere with radius 3.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Solve the system: x + y = 10, x - y = 2.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "What is 500 minus 35% discount?", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Calculate the standard deviation of 2, 4, 4, 4, 5, 5, 7, 9.", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Compute 128 / 16 + 4 * 3", "expected_classification": "convergent", "expected_subtype": "computation"}
+{"prompt": "Why does my Python function raise IndexError: list index out of range?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Fix this JavaScript TypeError: Cannot read property 'map' of undefined.", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "def sum_evens(nums): return [n for n in nums if n % 2 == 0] - why is my syntax invalid?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "How do I resolve a NullPointerException at line 42 in Java?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Why is my React useEffect hook causing an infinite re-render loop?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Debug this SQL query that returns duplicate rows: SELECT * FROM users JOIN orders ON users.id = orders.user_id", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "const result = await fetch('/api'); console.log(result.data) is undefined, what is wrong?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Fix the recursion error: maximum recursion depth exceeded in Python.", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Why does my CSS flexbox layout overflow the viewport on mobile?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "How do I fix memory leak in Node.js event listener?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Traceback (most recent call last): KeyError: 'session_id' in my Flask request handler.", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Why is git merge resulting in a conflict in package-lock.json?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "My async/await code is not waiting for the promise to resolve in TypeScript.", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Why does my Docker container exit with code 137?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Fix this regex that fails to match valid email addresses.", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Why is my Rust compiler rejecting this mutable borrow in a loop?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Debug why my FastAPI route returns 422 Unprocessable Entity on valid JSON.", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "How do I fix CORS policy blocked error on XMLHttpRequest to localhost:8000?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Why is my binary search function entering an infinite while loop?", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Resolve sqlalchemy.exc.OperationalError: no such table: prompt_records", "expected_classification": "convergent", "expected_subtype": "code_debugging"}
+{"prompt": "Should I accept the offer at Company A or stay at my current stable job?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Help me decide between moving to New York or staying in Chicago.", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Is it better to buy a hybrid car or a fully electric vehicle right now?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Should I choose a fixed-rate mortgage or an adjustable-rate mortgage?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Decide whether I should pursue a master's degree in CS or gain 2 years of industry experience.", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Help me choose between renting an apartment near downtown or buying a townhouse in the suburbs.", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Should I invest my savings in an index fund or individual tech stocks?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Weigh the pros and cons of quitting my job to start a freelance business.", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Should I adopt a rescue puppy or an older cat given my busy schedule?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Which career path should I take: Product Management or Engineering Management?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Help me decide whether to attend University X with a scholarship or University Y with prestige.", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Is it worth upgrading from iPhone 13 to iPhone 16 this year?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Should I sell my used car privately or trade it into the dealership?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Choose between learning Spanish or Mandarin for international business.", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Should I take a 10% pay cut for fully remote work flexibility?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Decide whether we should host an outdoor garden wedding or an indoor ballroom reception.", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Should I lease my next vehicle or purchase it with a 48-month auto loan?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Help me choose between hiring a full-time senior engineer or two junior developers.", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Should I sign a 6-month or 12-month lease agreement?", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Evaluate whether I should switch from AWS to Google Cloud for our startup.", "expected_classification": "convergent", "expected_subtype": "decision_making"}
+{"prompt": "Turn off notifications on my device.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Format this raw text into standard markdown headings.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Sort this list of names alphabetically: John, Alice, Robert, Clara.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Convert this table from CSV format to JSON key-value pairs.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Extract all phone numbers from the following paragraph.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Translate this French sentence to English: Bonjour, comment allez-vous?", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Remove all duplicate lines from this text file.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Capitalize the first letter of every sentence in this paragraph.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Normalize these postal addresses into standard USPS format.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Rearrange these bullet points in chronological order.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Summarize this 500-word article into exactly three bullet points.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Strip HTML tags from this string.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Compress this text into a concise 1-sentence abstract.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Convert 24-hour time 19:45 to 12-hour AM/PM format.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Parse this log string and output the timestamp and error code.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Clean up the trailing whitespace in this snippet.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Replace all occurrences of 'foo' with 'bar' in this text.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Identify the main parts of speech in: 'The quick brown fox jumps.'", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Extract the domain name from the URL https://www.example.org/path?query=1", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Filter this list to include only numbers greater than 50.", "expected_classification": "convergent", "expected_subtype": "other"}
+{"prompt": "Brainstorm 10 creative names for a sustainable coffee brand.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Write an imaginative short story about a lighthouse keeper who discovers a portal.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Suggest 5 unique marketing campaign ideas for launching an eco-friendly sneaker.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Draft a creative poem about autumn leaves in a bustling metropolis.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "What are some unconventional ways to design a children's playground?", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Generate 7 distinct themes for an interactive mystery dinner theater.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Write a screenplay outline for a science fiction heist set on Mars.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Brainstorm alternative uses for empty shipping containers in urban architecture.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Draft a whimsical dialogue between a talking cat and an eccentric inventor.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Suggest creative icebreaker activities for a remote design team.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "What are some innovative ways to reduce food waste in university cafeterias?", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Write a lyrical song verse about traveling across the galaxy alone.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Imagine what city transportation might look like in the year 2150.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Draft an engaging and funny introduction email for a new community garden.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Brainstorm 8 novel game mechanics for a cooperative tabletop board game.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Write a creative backstory for an ancient artifact found in an abandoned observatory.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Suggest 6 different art concepts exploring the connection between nature and technology.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "What are some interesting story hooks for a psychological thriller podcast?", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Design a speculative fiction scenario where sleep is no longer biologically necessary.", "expected_classification": "divergent", "expected_subtype": null}
+{"prompt": "Generate 5 inspiring mission statement ideas for an animal rescue organization.", "expected_classification": "divergent", "expected_subtype": null}
