@@ -100,8 +100,11 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Secure Session ID Signing Configuration
-SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev-secret-key-change-in-production-1234567890")
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+if not SESSION_SECRET_KEY:
+    if os.getenv("ENVIRONMENT") == "production" or os.getenv("VERCEL") == "1":
+        raise RuntimeError("SESSION_SECRET_KEY environment variable is required in production.")
+    SESSION_SECRET_KEY = "dev-secret-key-change-in-production-1234567890"
 
 def generate_signed_session_id() -> str:
     raw_id = secrets.token_urlsafe(16)
