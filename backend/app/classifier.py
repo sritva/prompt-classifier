@@ -64,159 +64,113 @@ class PromptClassificationResult(BaseModel):
     )
 
 def classify_heuristically(prompt: str) -> PromptClassificationResult:
-    """
-    Local heuristic/regex-based classifier that executes out-of-the-box
-    without requiring an LLM API key.
-    """
     p = prompt.strip().lower()
     
-    classification = "convergent"
-    confidence = 0.60
-    subtype = "other"
-    reasoning = "Defaulted to convergent (other) due to lack of strong divergent signals."
-
-    code_keywords = [
-        r"\bdef\s+\w+\b",
-        r"\bclass\s+\w+\b",
-        r"\bfunction\b",
-        r"\bconst\b",
-        r"\blet\b",
-        r"\bimport\b",
-        r"\berror\b",
-        r"\bbug\b",
-        r"\bexception\b",
-        r"\btraceback\b",
-        r"\bcompile\b",
-        r"\bjavascript\b",
-        r"\bpython\b",
-        r"\btypescript\b",
-        r"\breact\b",
-        r"\bcss\b",
-        r"\bfix this\b",
-        r"\{\s*\"",
-        r"\bloop\b",
-        r"\bfor\s+loop\b",
-        r"\bwhile\b"
+    factual_patterns = [
+        (r"\bwho (?:composed|sculpted|directed|choreographed|engineered|designed|wrote|painted|discovered|developed|created|invented|signed|built|said|conquered|ruled|won|founded|authored)\b", 3.5),
+        (r"\bwho (?:is|was) (?:the )?(?:author|writer|prime minister|president|creator|inventor|founder|ruler|king|queen|emperor)\b", 3.5),
+        (r"\bwho (?:is|was) known as\b", 3.0),
+        (r"\bwhat is the (?:history behind|origin of|invention of|chemical symbol|atomic number|atomic weight|freezing point|boiling point|melting point|speed of|height of|lifespan of|average height|escape velocity|carrying capacity|focal length|capital of|longest river|largest ocean|tallest mountain|population of|currency of|distance between|definition of|meaning of|first element|formula for|headquarters of)\b", 3.5),
+        (r"\b(name|identify|state|specify|define|list) the (?:first|author|writer|speed|chemical|term|base units|location|capital|largest|tallest|shortest|longest|deepest|symbol|element|president|founder)\b", 3.2),
+        (r"\bin what year\b|\bwhat year (?:did|was|is)\b", 3.0),
+        (r"\bwhere (?:is|are) (?:the )?(?:headquarters|capital|located|situated|eiffel|great barrier|pyramids|statue|tower|city|country|headquarters of)\b", 3.2),
+        (r"\bhow (?:many|far|long|much|tall|old|fast|deep) (?:bones|planets|keys|players|colors|stripes|chambers|is|does|are|can|was|were)\b", 3.2),
+        (r"\bwhat does [a-z0-9\-]+ stand for\b", 3.0),
+        (r"\bwhat (?:is|are) (?:the )?(?:capital|population|currency|height|speed|distance|definition|meaning|symbol|formula|origin|author|longest|largest|tallest|first|history)\b", 2.5),
+        (r"\bwhere is\b|\bwho was\b|\bwhen did\b|\bwhen was\b", 2.0)
     ]
     
-    decision_keywords = [
-        r"\bshould i\b",
-        r"\bdecide between\b",
-        r"\bis it better to\b",
-        r"\bchoose between\b",
-        r"\bcareer option\b",
-        r"\bcareer path\b",
-        r"\bhelp me choose\b",
-        r"\bwhether to\b",
-        r"\bpros and cons of\b"
+    computation_patterns = [
+        (r"\b(calculate|compute|solve for|solve the system|solve the equation|evaluate the integral|square root of|raised to the|factorial of|determinant of|standard deviation of|perimeter of|volume of|area of|hypotenuse of)\b", 3.5),
+        (r"\b(compound interest|discount|percent of|percentage of|median of|average of|derivative of|sum of|product of)\b", 3.0),
+        (r"\b(?:convert|temperature in)\s+\d+(?:\.\d+)?\s*(?:degrees\s+)?(?:fahrenheit|celsius|kelvin)\b", 3.5),
+        (r"\bhow many (?:seconds|minutes|hours|days|weeks|months|years|cents|dollars|grams|meters|inches|feet) (?:are|in)\b", 3.5),
+        (r"\b(divide|multiply|add|subtract)\s+\d+\s+(?:by|and|to|from)\b", 3.2),
+        (r"\b\d+\s*(?:[\+\-\*\/=\^]|divided by|multiplied by|plus|minus|times)\s*\d+\b", 3.0),
+        (r"\b\d+%\s+of\s+\d+\b", 3.0),
+        (r"\b\d+\s*[\+\-\*\/]\s*\d+\b", 2.5),
+        (r"\b(equation|integral|hypotenuse|determinant|matrix|standard deviation|factorial|median|formula)\b", 1.8)
     ]
-
-    comp_keywords = [
-        r"\bsolve\b",
-        r"\bcalculate\b",
-        r"\bcompute\b",
-        r"\bformula\b",
-        r"\bequation\b",
-        r"\bsum\b",
-        r"\baverage\b",
-        r"\bmean\b",
-        r"\bmedian\b",
-        r"\bpercentage\b",
-        r"[\+\-\*\/=\^]"
+    
+    code_patterns = [
+        (r"\b(typeerror|nullpointerexception|indexerror|keyerror|recursionerror|valueerror|syntaxerror|nameerror|operationalerror|runtimeerror)\b", 3.8),
+        (r"\b(traceback|stacktrace|re-render loop|memory leak|infinite loop|infinite while loop|exit with code \d+|segmentation fault|cannot read property|is undefined|out of range)\b", 3.8),
+        (r"\b(?:use|write|choose|create)\s+(?:a\s+)?(?:for loop|while loop|recursive function|for\s+loop|while\s+loop|function|class|method)\s+or\s+(?:a\s+)?(?:for loop|while loop|recursive function|for\s+loop|while\s+loop|function|class|method)\b", 4.5),
+        (r"\b(?:use|write|choose)\s+(?:a\s+)?(?:for loop|while loop|recursive function|for\s+loop|while\s+loop)\b", 4.2),
+        (r"\b(fix this|debug this|fix the|debug why|how do i fix|why does my|why is my|resolve)\s+(?:python|javascript|typescript|rust|sql|react|docker|fastapi|code|function|compiler|query|error|bug|layout|hook|promise|event|regex|regular expression)\b", 3.5),
+        (r"\b(def\s+\w+\s*\(|const\s+\w+\s*=|let\s+\w+\s*=|function\s+\w+\s*\(|import\s+\w+|SELECT\s+.+\s+FROM\b|async\/await|useeffect|sqlalchemy|css flexbox)\b", 3.2),
+        (r"\b(nullpointer|index out of range|recursion depth|merge conflict|package-lock\.json|cors policy|422 unprocessable|mutable borrow|unhandled promise)\b", 3.2),
+        (r"\b(compiler|syntax|debugging|compile|docker container|graphql|endpoint|database table)\b", 2.0)
     ]
-
-    factual_keywords = [
-        r"\bwhat is the capital\b",
-        r"\bwhere is\b",
-        r"\bwho was\b",
-        r"\bwhen did\b",
-        r"\bhow many people\b",
-        r"\bheight of\b",
-        r"\bdistance between\b",
-        r"\bdefinition of\b",
-        r"\bwho is\b",
-        r"\bwhat does\b",
-        r"\bhow old is\b",
-        r"\bwhen was\b",
-        r"\bwho (?:wrote|painted|discovered|developed|created|invented|designed|signed|built|said|conquered|ruled|won|founded|author of)\b",
-        r"\bwho is the author of\b",
-        r"\bwho is known as\b",
-        r"\bwhat is the (?:chemical|atomic|speed|largest|tallest|longest|deepest|smallest|biggest|boiling|melting|population|currency|capital|height|distance|definition|meaning|formula|symbol|deep ocean zone)\b",
-        r"\bin what year\b",
-        r"\bwhat year (?:did|was|is)\b",
-        r"\bhow many\b",
-        r"\bhow (?:far|long|much|tall|old|fast|many)\b"
+    
+    decision_patterns = [
+        (r"\bshould i (?:accept|buy|sell|lease|adopt|invest|pursue|choose|move|take|switch|sign|rent|stay|upgrade|learn|attend|hire|write|use)\b", 3.8),
+        (r"\bhelp me (?:choose|decide) between\b|\bdecide between\b|\bchoose between\b|\bdecide whether\b|\bhelp me choose\b|\bhelp me decide\b", 3.8),
+        (r"\bis [a-z0-9]+ or [a-z0-9]+ better for\b|\bis it better to\b|\bweigh the pros and cons\b|\bpros and cons of\b|\bwhich career path\b|\bis it worth upgrading\b|\bevaluate whether\b", 3.5),
+        (r"\b(career option|career path|pros and cons|mortgage|degree|savings|freelance|scholarship|hybrid car|electric vehicle)\b", 2.2)
     ]
-
-    divergent_keywords = [
-        r"\bwrite a\b",
-        r"\bwrite an\b",
-        r"\bwrite some\b",
-        r"\bpoem\b",
-        r"\bstory\b",
-        r"\bsong\b",
-        r"\bessay\b",
-        r"\bemail\b",
-        r"\bdraft\b",
-        r"\bcreative\b",
-        r"\bimagine\b",
-        r"\bdesign a\b",
-        r"\bbrainstorm\b",
-        r"\bsuggest some\b",
-        r"\bideas for\b",
-        r"\bwhat are some ways\b",
-        r"\bhow can i improve\b",
-        r"\bopinions on\b",
-        r"\bwhat do you think\b",
-        r"\boutline a\b",
-        r"\bgenerate\b"
+    
+    divergent_patterns = [
+        (r"\bwrite a (?:funny |humorous |creative |short |long |lyrical )?(?:poem|story|song|screenplay|essay|verse|backstory)\b", 4.5),
+        (r"\b(brainstorm|write an imaginative|draft a whimsical|draft an engaging|draft a creative|suggest creative|imagine what|imagine a world|speculative fiction)\b", 3.8),
+        (r"\b(screenplay outline|creative backstory|unconventional ways|innovative ways|alternative uses|novel game mechanics|art concepts|story hooks|marketing campaign ideas|mission statement ideas|design metaphors)\b", 3.8),
+        (r"\bsuggest (?:some|\d+)? (?:unique|creative|ideas|themes|concepts|activities|hooks|metaphors)\b", 3.2),
+        (r"\bgenerate (?:some|\d+)? (?:themes|ideas|distinct|novel|inspiring|mission)\b", 3.2),
+        (r"\b(creative|whimsical|imaginative|speculative|metaphor|lyrical|poem|story|brainstorm|icebreaker)\b", 2.2)
     ]
-
-    imperative_convergent_keywords = [
-        r"\bidentify\b",
-        r"\bdefine\b",
-        r"\bstate the\b",
-        r"\bname the\b",
-        r"\blist the\b"
+    
+    other_patterns = [
+        (r"\b(format this|sort this|convert this|extract all|translate this|remove all duplicate|capitalize the|normalize these|rearrange these|summarize this|strip html|compress this|clean up the|replace all occurrences|turn off notifications)\b", 3.2),
+        (r"\b(convert 24-hour|convert \d+-hour|parts of speech|extract the domain|filter this list|parse this log)\b", 3.0),
+        (r"\b(format|sort|translate|summarize|convert|extract|lowercase|uppercase|trim|clean)\b", 1.8)
     ]
-
-    if any(re.search(pat, p) for pat in code_keywords):
-        classification = "convergent"
-        confidence = 0.85
-        subtype = "code_debugging"
-        reasoning = "Classified heuristically as code debugging due to code syntactical structures or programming keywords."
-    elif any(re.search(pat, p) for pat in decision_keywords):
-        classification = "convergent"
-        confidence = 0.80
-        subtype = "decision_making"
-        reasoning = "Classified heuristically as a decision-making task involving evaluating choices or weighing personal outcomes."
-    elif any(re.search(pat, p) for pat in comp_keywords) and any(char.isdigit() for char in p):
-        classification = "convergent"
-        confidence = 0.90
-        subtype = "computation"
-        reasoning = "Classified heuristically as computation based on numerical values and math keywords/symbols."
-    elif any(re.search(pat, p) for pat in factual_keywords):
-        classification = "convergent"
-        confidence = 0.85
-        subtype = "factual_lookup"
-        reasoning = "Classified heuristically as a factual lookup based on factual query keywords."
-    elif any(re.search(pat, p) for pat in divergent_keywords):
+    
+    scores = {
+        "factual_lookup": sum(weight for pat, weight in factual_patterns if re.search(pat, p)),
+        "computation": sum(weight for pat, weight in computation_patterns if re.search(pat, p)),
+        "code_debugging": sum(weight for pat, weight in code_patterns if re.search(pat, p)),
+        "decision_making": sum(weight for pat, weight in decision_patterns if re.search(pat, p)),
+        "divergent": sum(weight for pat, weight in divergent_patterns if re.search(pat, p)),
+        "other": sum(weight for pat, weight in other_patterns if re.search(pat, p))
+    }
+    
+    sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    top_cat, top_score = sorted_scores[0]
+    second_cat, second_score = sorted_scores[1]
+    
+    margin = top_score - second_score
+    
+    if top_score == 0.0:
+        if "?" in p:
+            classification = "convergent"
+            subtype = "other"
+            confidence = 0.55
+            reasoning = "Defaulted to convergent (other) due to presence of question punctuation without distinct domain cues."
+        else:
+            classification = "convergent"
+            subtype = "other"
+            confidence = 0.50
+            reasoning = "Defaulted to convergent (other) due to lack of distinct divergent or convergent cues."
+    elif top_cat == "divergent":
         classification = "divergent"
-        confidence = 0.85
         subtype = "originality"
-        reasoning = "Classified heuristically as divergent/open-ended due to content creation or brainstorming keywords."
-    elif any(re.search(pat, p) for pat in imperative_convergent_keywords):
+        confidence = min(0.98, max(0.65, 0.70 + 0.05 * top_score + 0.05 * margin))
+        reasoning = "Classified as divergent due to strong creative generation, ideation, or open-ended phrasing."
+    else:
         classification = "convergent"
-        confidence = 0.70
-        subtype = "other"
-        reasoning = "Classified heuristically as convergent (other) due to imperative command keywords."
-    elif "?" in p:
-        classification = "convergent"
-        confidence = 0.60
-        subtype = "other"
-        reasoning = "Defaulted to convergent (other) due to presence of a question mark without strong divergent signals."
+        subtype = top_cat
+        confidence = min(0.98, max(0.65, 0.70 + 0.05 * top_score + 0.05 * margin))
+        if top_cat == "factual_lookup":
+            reasoning = "Classified as factual lookup based on specific entity, definition, or verifiable reference query cues."
+        elif top_cat == "computation":
+            reasoning = "Classified as computation based on numerical calculations, math formulas, or equation expressions."
+        elif top_cat == "code_debugging":
+            reasoning = "Classified as code debugging due to programming syntax, runtime exception, or bug resolution cues."
+        elif top_cat == "decision_making":
+            reasoning = "Classified as decision-making based on evaluation of personal choices, tradeoffs, or options."
+        else:
+            reasoning = "Classified as convergent utility task based on structured text transformation or data processing cues."
 
-    # Generate heuristic structured explanation and reflection prompts
     if classification == "convergent":
         if subtype == "code_debugging":
             explanation_details = StructuredExplanation(
@@ -283,6 +237,7 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
         latency_ms=0,
         total_tokens=0
     )
+
 
 def _extract_tokens(response) -> Optional[int]:
     raw_tokens = getattr(getattr(response, "usage", None), "total_tokens", None)

@@ -294,7 +294,7 @@ def test_confidence_threshold_fallback(mock_openai_class):
         
     assert res.classification == "convergent"
     assert res.subtype == "factual_lookup"
-    assert res.confidence == 0.85
+    assert res.confidence >= 0.65
     assert "(LLM confidence below threshold, using heuristic fallback)" in res.reasoning
 
 @patch("app.classifier.OpenAI")

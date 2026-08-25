@@ -1,20 +1,20 @@
 {
   "metrics": {
-    "overall_accuracy": 0.9567,
+    "overall_accuracy": 0.9333,
     "class_accuracy": 1.0,
-    "subtype_accuracy": 0.9567,
+    "subtype_accuracy": 0.9333,
     "classification": {
       "convergent": {
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 240
+        "support": 10
       },
       "divergent": {
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 60
+        "support": 5
       }
     },
     "subtype": {
@@ -22,257 +22,87 @@
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 60
+        "support": 3
       },
       "computation": {
         "precision": 1.0,
-        "recall": 0.9,
-        "f1": 0.9474,
-        "support": 60
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 2
       },
       "code_debugging": {
-        "precision": 0.9077,
-        "recall": 0.9833,
-        "f1": 0.944,
-        "support": 60
+        "precision": 1.0,
+        "recall": 0.6667,
+        "f1": 0.8,
+        "support": 3
       },
       "decision_making": {
-        "precision": 1.0,
-        "recall": 0.9,
-        "f1": 0.9474,
-        "support": 60
+        "precision": 0.6667,
+        "recall": 1.0,
+        "f1": 0.8,
+        "support": 2
       },
       "None": {
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 60
+        "support": 5
       }
     },
     "latency_ms": {
-      "p50": 0.184,
-      "p95": 0.823
+      "p50": 0.346,
+      "p95": 32.453
     }
   },
-  "confusion_matrices": {
-    "classification": {
-      "convergent": {
-        "convergent": 240,
-        "divergent": 0
+  "traces": {
+    "precision": 1.0,
+    "false_warning_rate": 0.0,
+    "total_traces": 5,
+    "trace_results": [
+      {
+        "session_id": "trace_healthy_balanced_1",
+        "expected_signal": "none",
+        "predicted_signal": "low",
+        "score": 2
       },
-      "divergent": {
-        "convergent": 0,
-        "divergent": 60
+      {
+        "session_id": "trace_healthy_mixed_2",
+        "expected_signal": "none",
+        "predicted_signal": "none",
+        "score": 1
+      },
+      {
+        "session_id": "trace_overreliance_decisions_1",
+        "expected_signal": "high",
+        "predicted_signal": "high",
+        "score": 9
+      },
+      {
+        "session_id": "trace_overreliance_mixed_risk_2",
+        "expected_signal": "moderate",
+        "predicted_signal": "moderate",
+        "score": 6
+      },
+      {
+        "session_id": "trace_healthy_ambiguous_low_conf_3",
+        "expected_signal": "none",
+        "predicted_signal": "low",
+        "score": 2
       }
-    },
-    "subtype": {
-      "factual_lookup": {
-        "factual_lookup": 60,
-        "computation": 0,
-        "code_debugging": 0,
-        "decision_making": 0,
-        "other": 0,
-        "None": 0
-      },
-      "computation": {
-        "factual_lookup": 0,
-        "computation": 54,
-        "code_debugging": 0,
-        "decision_making": 0,
-        "other": 6,
-        "None": 0
-      },
-      "code_debugging": {
-        "factual_lookup": 0,
-        "computation": 0,
-        "code_debugging": 59,
-        "decision_making": 0,
-        "other": 1,
-        "None": 0
-      },
-      "decision_making": {
-        "factual_lookup": 0,
-        "computation": 0,
-        "code_debugging": 6,
-        "decision_making": 54,
-        "other": 0,
-        "None": 0
-      },
-      "other": {
-        "factual_lookup": 0,
-        "computation": 0,
-        "code_debugging": 0,
-        "decision_making": 0,
-        "other": 0,
-        "None": 0
-      },
-      "None": {
-        "factual_lookup": 0,
-        "computation": 0,
-        "code_debugging": 0,
-        "decision_making": 0,
-        "other": 0,
-        "None": 60
-      }
-    }
+    ]
   },
   "misclassified": [
     {
-      "prompt": "What is the square root of 144?",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "computation"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "other",
-        "confidence": 0.6
-      }
-    },
-    {
-      "prompt": "What is 100 divided by 4?",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "computation"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "other",
-        "confidence": 0.6
-      }
-    },
-    {
-      "prompt": "What is the cube root of 27?",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "computation"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "other",
-        "confidence": 0.6
-      }
-    },
-    {
-      "prompt": "What is the square of 15?",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "computation"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "other",
-        "confidence": 0.6
-      }
-    },
-    {
-      "prompt": "What is 500 divided by 20?",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "computation"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "other",
-        "confidence": 0.6
-      }
-    },
-    {
-      "prompt": "What is the square root of 256?",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "computation"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "other",
-        "confidence": 0.6
-      }
-    },
-    {
-      "prompt": "Why am I getting a NullPointerException in Java?",
+      "prompt": "Should I write a while loop or a for loop for this list traversal?",
       "expected": {
         "classification": "convergent",
         "subtype": "code_debugging"
       },
       "actual": {
         "classification": "convergent",
-        "subtype": "other",
-        "confidence": 0.6
-      }
-    },
-    {
-      "prompt": "Choose between learning Python or JavaScript for web development",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "decision_making"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "code_debugging",
-        "confidence": 0.85
-      }
-    },
-    {
-      "prompt": "Help me decide between React and Vue for my next project",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "decision_making"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "code_debugging",
-        "confidence": 0.85
-      }
-    },
-    {
-      "prompt": "Help me decide: Python or R for statistical analysis?",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "decision_making"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "code_debugging",
-        "confidence": 0.85
-      }
-    },
-    {
-      "prompt": "Choose between using Tailwind CSS or standard Vanilla CSS",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "decision_making"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "code_debugging",
-        "confidence": 0.85
-      }
-    },
-    {
-      "prompt": "Help me decide: should I use TypeScript or JavaScript for node?",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "decision_making"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "code_debugging",
-        "confidence": 0.85
-      }
-    },
-    {
-      "prompt": "Choose between learning Django or FastAPI for Python web development",
-      "expected": {
-        "classification": "convergent",
-        "subtype": "decision_making"
-      },
-      "actual": {
-        "classification": "convergent",
-        "subtype": "code_debugging",
-        "confidence": 0.85
+        "subtype": "decision_making",
+        "confidence": 0.9199999999999999
       }
     }
-  ],
-  "total_prompts": 300
+  ]
 }
