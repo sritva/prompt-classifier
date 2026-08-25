@@ -28,7 +28,12 @@ export const StatsChart: React.FC<StatsChartProps> = ({ history }) => {
     if (record.classification === "divergent") {
       counts.divergent += 1;
     } else if (record.classification === "convergent" && record.subtype) {
-      counts[record.subtype] = (counts[record.subtype] || 0) + 1;
+      const sub = record.subtype;
+      if (sub === "factual_lookup" || sub === "computation" || sub === "code_debugging" || sub === "decision_making" || sub === "other") {
+        counts[sub] += 1;
+      } else {
+        counts.other += 1;
+      }
     }
   });
 
