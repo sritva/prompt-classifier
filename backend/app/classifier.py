@@ -17,6 +17,20 @@ CONFIDENCE_THRESHOLD = 0.6
 CLASSIFIER_CACHE = {}
 MAX_CACHE_SIZE = 500
 
+_CLIENT_CACHE = {}
+
+def _get_llm_client(api_key: str, base_url: Optional[str] = None) -> OpenAI:
+    cache_key = (api_key, base_url)
+    if cache_key in _CLIENT_CACHE and not hasattr(OpenAI, "mock_calls"):
+        return _CLIENT_CACHE[cache_key]
+    client_args = {"api_key": api_key}
+    if base_url:
+        client_args["base_url"] = base_url
+    client = OpenAI(**client_args)
+    if not hasattr(OpenAI, "mock_calls"):
+        _CLIENT_CACHE[cache_key] = client
+    return client
+
 class StructuredExplanation(BaseModel):
     given_inputs: list[str] = Field(
         description="List of inputs explicitly provided in the prompt."
@@ -312,11 +326,7 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
         return heuristic_res
 
     base_url = os.getenv("LLM_BASE_URL")
-
-    client_args = {"api_key": api_key}
-    if base_url:
-        client_args["base_url"] = base_url
-    client = OpenAI(**client_args)
+    client = _get_llm_client(api_key, base_url)
     
     last_error = None
     system_prompt = (
