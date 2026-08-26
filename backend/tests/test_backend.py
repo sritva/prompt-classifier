@@ -509,3 +509,42 @@ def test_classifier_true_lru_cache_eviction(monkeypatch):
     assert key_c in CLASSIFIER_CACHE
     assert list(CLASSIFIER_CACHE.keys()) == [key_a, key_c]
 
+
+def test_rate_limiter_ttl_cleanup_bounded_memory(monkeypatch):
+    import app.main as main_mod
+    from app.main import TokenBucket, _cleanup_expired_buckets, classify_buckets
+
+    classify_buckets.clear()
+    monkeypatch.setattr(main_mod, "RATE_LIMIT_BUCKET_TTL_SECONDS", 10)
+    monkeypatch.setattr(main_mod, "MAX_RATE_LIMIT_BUCKETS", 3)
+
+    now = 1000.0
+    b1 = TokenBucket(capacity=10, refill_rate=0.5)
+    b1.last_seen = now - 20
+    classify_buckets["192.168.1.1"] = b1
+
+    b2 = TokenBucket(capacity=10, refill_rate=0.5)
+    b2.last_seen = now - 5
+    classify_buckets["192.168.1.2"] = b2
+
+    b3 = TokenBucket(capacity=10, refill_rate=0.5)
+    b3.last_seen = now - 2
+    classify_buckets["192.168.1.3"] = b3
+
+    _cleanup_expired_buckets(now)
+    assert "192.168.1.1" not in classify_buckets
+    assert "192.168.1.2" in classify_buckets
+    assert "192.168.1.3" in classify_buckets
+
+    b4 = TokenBucket(capacity=10, refill_rate=0.5)
+    b4.last_seen = now
+    classify_buckets["192.168.1.4"] = b4
+
+    b5 = TokenBucket(capacity=10, refill_rate=0.5)
+    b5.last_seen = now
+    classify_buckets["192.168.1.5"] = b5
+
+    _cleanup_expired_buckets(now)
+    assert len(classify_buckets) <= 3
+
+

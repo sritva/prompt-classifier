@@ -126,15 +126,21 @@ def check_session_id(session_id: str):
             detail="Session verification failed. Invalid or malformed session identifier."
         )
 
+RATE_LIMIT_BUCKET_TTL_SECONDS = 600
+MAX_RATE_LIMIT_BUCKETS = 10000
+
 class TokenBucket:
     def __init__(self, capacity: int, refill_rate: float):
         self.capacity = capacity
         self.refill_rate = refill_rate
         self.tokens = capacity
-        self.last_refill = time.time()
+        now = time.time()
+        self.last_refill = now
+        self.last_seen = now
 
     def consume(self, tokens: int = 1) -> bool:
         now = time.time()
+        self.last_seen = now
         elapsed = now - self.last_refill
         self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
         self.last_refill = now
@@ -144,7 +150,23 @@ class TokenBucket:
             return True
         return False
 
-classify_buckets = {}
+classify_buckets: dict[str, TokenBucket] = {}
+
+def _cleanup_expired_buckets(now: float) -> None:
+    expired_keys = [
+        ip for ip, bucket in classify_buckets.items()
+        if now - bucket.last_seen > RATE_LIMIT_BUCKET_TTL_SECONDS
+    ]
+    for ip in expired_keys:
+        del classify_buckets[ip]
+
+    if len(classify_buckets) >= MAX_RATE_LIMIT_BUCKETS:
+        excess = len(classify_buckets) - MAX_RATE_LIMIT_BUCKETS + 1
+        for _ in range(excess):
+            try:
+                del classify_buckets[next(iter(classify_buckets))]
+            except (StopIteration, KeyError):
+                break
 
 def rate_limit(request: Request):
     """
@@ -152,6 +174,9 @@ def rate_limit(request: Request):
     Capacity: 10 requests, refills 1 token every 2 seconds (0.5 tokens/sec).
     Supports X-Forwarded-For to work correctly behind reverse proxies.
     """
+    now = time.time()
+    _cleanup_expired_buckets(now)
+
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
         client_ip = forwarded_for.split(",")[0].strip()
