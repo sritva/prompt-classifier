@@ -1,7 +1,8 @@
 import os
 from datetime import datetime, timezone
+from typing import Generator
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 from dotenv import load_dotenv
 
 from .models import Base, Session as DBSession, PromptRecord
@@ -21,8 +22,18 @@ if DATABASE_URL.startswith("sqlite"):
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-def get_or_create_session(session_id: str) -> DBSession:
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def get_or_create_session(session_id: str, db: Session | None = None) -> DBSession:
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
     try:
         session = db.query(DBSession).filter(DBSession.session_id == session_id).first()
         if not session:
@@ -33,7 +44,8 @@ def get_or_create_session(session_id: str) -> DBSession:
         db.expunge(session)
         return session
     finally:
-        db.close()
+        if close_db:
+            db.close()
 
 def add_prompt_record(
     session_id: str,
@@ -46,11 +58,15 @@ def add_prompt_record(
     total_tokens: int | None = None,
     explanation_details: str | None = None,
     reflection_prompt: str | None = None,
-    classifier_version: str | None = "2.0.0"
+    classifier_version: str | None = "2.0.0",
+    db: Session | None = None
 ) -> PromptRecord:
-    get_or_create_session(session_id)
-    db = SessionLocal()
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
     try:
+        get_or_create_session(session_id, db=db)
         record = PromptRecord(
             session_id=session_id,
             prompt=prompt,
@@ -71,10 +87,14 @@ def add_prompt_record(
         db.expunge(record)
         return record
     finally:
-        db.close()
+        if close_db:
+            db.close()
 
-def get_session_history(session_id: str) -> list[PromptRecord]:
-    db = SessionLocal()
+def get_session_history(session_id: str, db: Session | None = None) -> list[PromptRecord]:
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
     try:
         records = (
             db.query(PromptRecord)
@@ -86,22 +106,54 @@ def get_session_history(session_id: str) -> list[PromptRecord]:
             db.expunge(r)
         return records
     finally:
-        db.close()
+        if close_db:
+            db.close()
 
-def clear_session_history(session_id: str) -> None:
-    db = SessionLocal()
+def get_recent_session_history(session_id: str, cutoff: datetime, db: Session | None = None) -> list[PromptRecord]:
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
+    try:
+        lookup_cutoff = cutoff.astimezone(timezone.utc).replace(tzinfo=None) if cutoff.tzinfo else cutoff
+        records = (
+            db.query(PromptRecord)
+            .filter(
+                PromptRecord.session_id == session_id,
+                PromptRecord.created_at >= lookup_cutoff
+            )
+            .order_by(PromptRecord.created_at.asc())
+            .all()
+        )
+        for r in records:
+            db.expunge(r)
+        return records
+    finally:
+        if close_db:
+            db.close()
+
+def clear_session_history(session_id: str, db: Session | None = None) -> None:
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
     try:
         db.query(PromptRecord).filter(PromptRecord.session_id == session_id).delete()
         db.commit()
     finally:
-        db.close()
+        if close_db:
+            db.close()
 
 def get_cached_prompt_record(
     prompt: str,
     classifier_version: str | None = "2.0.0",
-    max_age_seconds: int = 86400
+    max_age_seconds: int = 86400,
+    db: Session | None = None
 ) -> PromptRecord | None:
-    db = SessionLocal()
+    close_db = False
+    if db is None:
+        db = SessionLocal()
+        close_db = True
     try:
         from sqlalchemy import func
         normalized = prompt.strip().lower()
@@ -120,5 +172,5 @@ def get_cached_prompt_record(
             db.expunge(record)
         return record
     finally:
-        db.close()
-
+        if close_db:
+            db.close()

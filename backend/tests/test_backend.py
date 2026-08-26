@@ -1,10 +1,10 @@
 import os
 import time
 from datetime import datetime, timezone, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
 
-from app.classifier import classify_heuristically, classify_prompt, PromptClassificationResult
+from app.classifier import classify_heuristically, classify_prompt, aclassify_prompt, PromptClassificationResult
 from app.main import generate_signed_session_id
 from app.overreliance import calculate_overreliance
 from app import session_store
@@ -138,7 +138,7 @@ def test_session_crud():
     assert len(history_after) == 0
 
 # 4. Test API Endpoints & Mocking
-@patch("app.classifier.OpenAI")
+@patch("app.classifier.AsyncOpenAI")
 def test_api_classify_openai_success(mock_openai_class, client):
     # Mock successful OpenAI structured completion
     mock_client = MagicMock()
@@ -154,7 +154,7 @@ def test_api_classify_openai_success(mock_openai_class, client):
     mock_choice.message.parsed = mock_parsed_result
     mock_response = MagicMock()
     mock_response.choices = [mock_choice]
-    mock_client.beta.chat.completions.parse.return_value = mock_response
+    mock_client.beta.chat.completions.parse = AsyncMock(return_value=mock_response)
 
     # Temporarily set API key to force OpenAI path
     with patch.dict(os.environ, {"LLM_API_KEY": "sk-real-key-placeholder"}):
@@ -175,7 +175,7 @@ def test_api_classify_openai_success(mock_openai_class, client):
     assert "total_tokens" in data
     assert data["latency_ms"] is not None
 
-@patch("app.classifier.OpenAI")
+@patch("app.classifier.AsyncOpenAI")
 def test_api_classify_custom_endpoint_success(mock_openai_class, client):
     # Mock successful custom endpoint (OpenRouter) JSON-mode completion
     mock_client = MagicMock()
@@ -187,7 +187,7 @@ def test_api_classify_custom_endpoint_success(mock_openai_class, client):
     
     mock_response = MagicMock()
     mock_response.choices = [mock_choice]
-    mock_client.chat.completions.create.return_value = mock_response
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
     with patch.dict(os.environ, {
         "LLM_API_KEY": "sk-or-v1-some-key",
@@ -224,12 +224,12 @@ def test_api_classify_fallback_success(client):
     assert data["subtype"] == "originality"
     assert data["session_summary"]["total_prompts"] == 1
 
-@patch("app.classifier.OpenAI")
+@patch("app.classifier.AsyncOpenAI")
 def test_api_classify_openai_retry_and_fail(mock_openai_class, client):
     # Mock OpenAI client always raising exception to test retry behavior
     mock_client = MagicMock()
     mock_openai_class.return_value = mock_client
-    mock_client.beta.chat.completions.parse.side_effect = Exception("OpenAI API Down")
+    mock_client.beta.chat.completions.parse = AsyncMock(side_effect=Exception("OpenAI API Down"))
 
     with patch.dict(os.environ, {"LLM_API_KEY": "sk-real-key-placeholder"}):
         session_id = generate_signed_session_id()
@@ -546,5 +546,56 @@ def test_rate_limiter_ttl_cleanup_bounded_memory(monkeypatch):
 
     _cleanup_expired_buckets(now)
     assert len(classify_buckets) <= 3
+
+
+def test_get_db_generator_yield_and_teardown():
+    gen = session_store.get_db()
+    db = next(gen)
+    assert db is not None
+    try:
+        session_store.get_or_create_session("test-gen-session", db=db)
+    finally:
+        try:
+            next(gen)
+        except StopIteration:
+            pass
+
+
+def test_sql_rolling_overreliance_cutoff_filter():
+    session_id = "test-sql-cutoff-session"
+    now = datetime.now(timezone.utc)
+    
+    old_record = session_store.add_prompt_record(
+        session_id=session_id,
+        prompt="Old prompt 15m ago",
+        classification="convergent",
+        subtype="decision_making",
+        confidence=1.0,
+        reasoning="Old"
+    )
+    db = session_store.SessionLocal()
+    try:
+        r = db.query(PromptRecord).filter(PromptRecord.id == old_record.id).first()
+        r.created_at = (now - timedelta(minutes=15)).replace(tzinfo=None)
+        db.commit()
+    finally:
+        db.close()
+
+    recent_record = session_store.add_prompt_record(
+        session_id=session_id,
+        prompt="Recent prompt 2m ago",
+        classification="convergent",
+        subtype="decision_making",
+        confidence=1.0,
+        reasoning="Recent"
+    )
+
+    cutoff = now - timedelta(minutes=10)
+    recent_records = session_store.get_recent_session_history(session_id, cutoff=cutoff)
+    assert len(recent_records) == 1
+    assert recent_records[0].id == recent_record.id
+
+    all_records = session_store.get_session_history(session_id)
+    assert len(all_records) == 2
 
 

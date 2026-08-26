@@ -6,7 +6,7 @@ import logging
 from typing import Literal, Optional
 from collections import OrderedDict
 from pydantic import BaseModel, Field
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 
 logger = logging.getLogger("prompt_classifier")
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +25,7 @@ def _put_cache(key: str, val: "PromptClassificationResult") -> None:
         CLASSIFIER_CACHE.popitem(last=False)
 
 _CLIENT_CACHE = {}
+_ASYNC_CLIENT_CACHE = {}
 
 def _get_llm_client(api_key: str, base_url: Optional[str] = None) -> OpenAI:
     cache_key = (api_key, base_url)
@@ -36,6 +37,18 @@ def _get_llm_client(api_key: str, base_url: Optional[str] = None) -> OpenAI:
     client = OpenAI(**client_args)
     if not hasattr(OpenAI, "mock_calls"):
         _CLIENT_CACHE[cache_key] = client
+    return client
+
+def _get_async_llm_client(api_key: str, base_url: Optional[str] = None) -> AsyncOpenAI:
+    cache_key = (api_key, base_url)
+    if cache_key in _ASYNC_CLIENT_CACHE and not hasattr(AsyncOpenAI, "mock_calls"):
+        return _ASYNC_CLIENT_CACHE[cache_key]
+    client_args = {"api_key": api_key}
+    if base_url:
+        client_args["base_url"] = base_url
+    client = AsyncOpenAI(**client_args)
+    if not hasattr(AsyncOpenAI, "mock_calls"):
+        _ASYNC_CLIENT_CACHE[cache_key] = client
     return client
 
 class StructuredExplanation(BaseModel):
@@ -388,6 +401,157 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
             else:
                 start_time = time.perf_counter()
                 response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={"type": "json_object"}
+                )
+                latency_ms = int((time.perf_counter() - start_time) * 1000)
+                content = response.choices[0].message.content
+                if not content:
+                    raise ValueError("Empty response content from LLM")
+                
+                import json
+                data = json.loads(content)
+                parsed = PromptClassificationResult(**data)
+                if parsed.classification == "divergent" and parsed.subtype not in ["fluency", "flexibility", "originality", "elaboration"]:
+                    parsed.subtype = None
+                elif parsed.classification == "convergent" and parsed.subtype not in ["factual_lookup", "computation", "code_debugging", "decision_making", "other"]:
+                    parsed.subtype = "other"
+                
+                if parsed.confidence < CONFIDENCE_THRESHOLD:
+                    logger.warning(f"LLM confidence {parsed.confidence} below threshold {CONFIDENCE_THRESHOLD}. Falling back to heuristic classifier.")
+                    heuristic_res = classify_heuristically(prompt)
+                    heuristic_res.reasoning = f"{heuristic_res.reasoning} (LLM confidence below threshold, using heuristic fallback)"
+                    return heuristic_res
+                
+                parsed.latency_ms = latency_ms
+                parsed.total_tokens = _extract_tokens(response)
+                
+                _put_cache(cache_key, parsed)
+                return parsed
+        except Exception as e:
+            logger.warning(f"LLM classification attempt {attempt + 1} failed: {e}")
+            last_error = e
+            
+    raise ValueError(f"LLM classification failed after retrying. Error: {last_error}")
+
+
+async def aclassify_prompt(prompt: str) -> PromptClassificationResult:
+    normalized = prompt.strip().lower()
+    prompt_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
+    cache_key = f"v{CLASSIFIER_VERSION}:{model}:{prompt_hash}"
+    
+    if cache_key in CLASSIFIER_CACHE:
+        cached_time, cached_result = CLASSIFIER_CACHE[cache_key]
+        if time.time() - cached_time < CACHE_TTL_SECONDS:
+            CLASSIFIER_CACHE.move_to_end(cache_key)
+            logger.info(f"In-memory cache hit: '{normalized}'")
+            return cached_result
+        else:
+            del CLASSIFIER_CACHE[cache_key]
+
+    try:
+        from . import session_store
+        import json
+        cached_record = session_store.get_cached_prompt_record(
+            prompt,
+            classifier_version=CLASSIFIER_VERSION,
+            max_age_seconds=CACHE_TTL_SECONDS
+        )
+        if cached_record:
+            logger.info(f"Database cache hit: '{normalized}'")
+            explanation_details = None
+            if cached_record.explanation_details:
+                try:
+                    explanation_details = StructuredExplanation(**json.loads(cached_record.explanation_details))
+                except Exception as e:
+                    logger.warning(f"Failed to parse explanation_details from cache: {e}")
+            
+            result = PromptClassificationResult(
+                classification=cached_record.classification,
+                confidence=cached_record.confidence,
+                subtype=cached_record.subtype,
+                reasoning=cached_record.reasoning,
+                explanation_details=explanation_details,
+                reflection_prompt=cached_record.reflection_prompt,
+                latency_ms=0,
+                total_tokens=0
+            )
+            _put_cache(cache_key, result)
+            return result
+    except Exception as e:
+        logger.warning(f"Database cache lookup failed: {e}")
+
+    api_key = os.getenv("LLM_API_KEY")
+    if not api_key or api_key.strip() == "" or api_key.startswith("your-") or api_key == "placeholder":
+        logger.info("LLM_API_KEY is not set or contains placeholders. Falling back to local heuristic classifier.")
+        heuristic_res = classify_heuristically(prompt)
+        _put_cache(cache_key, heuristic_res)
+        return heuristic_res
+
+    base_url = os.getenv("LLM_BASE_URL")
+    client = _get_async_llm_client(api_key, base_url)
+    
+    last_error = None
+    system_prompt = (
+        "You are a prompt classifier that categorizes prompts according to J.P. Guilford's convergent/divergent theory.\n"
+        "Convergent: tasks with a single, verifiable, correct answer (e.g. math, factual lookups, debugging, choice decisions).\n"
+        "For convergent prompts, choose one of these subtypes: 'factual_lookup', 'computation', 'code_debugging', 'decision_making', 'other'.\n"
+        "For convergent prompts, you MUST generate a tailored, mindful 'reflection_prompt' to encourage user critical thinking before relying on the AI (e.g., 'What are the main edge cases in this algorithm?', 'How will you verify this factual claim independently?', 'Are there any alternative parameters we should consider?').\n"
+        "Divergent: open-ended tasks generating multiple options/possibilities (e.g. brainstorming, writing, creative design).\n"
+        "For divergent prompts, choose one of Guilford's creative domains as the subtype: 'fluency' (speed/quantity of ideas), 'flexibility' (different categories/perspectives), 'originality' (unique/unusual ideas), 'elaboration' (building/expanding on ideas). For divergent prompts, reflection_prompt MUST be null.\n"
+        "For all prompts, populate the 'explanation_details' object matching the StructuredExplanation schema:\n"
+        "  - given_inputs: list of strings (explicit inputs provided in user prompt)\n"
+        "  - expected_outputs: list of strings (expected outputs/targets)\n"
+        "  - creative_freedom_score: float between 0.0 (strictly defined) and 1.0 (highly open-ended)\n"
+        "  - factual_dependency: 'low' | 'medium' | 'high'\n"
+        "  - complexity: 'low' | 'medium' | 'high'\n"
+        "Provide the classification, a confidence score between 0.0 and 1.0, a single-sentence reasoning, the subtype, explanation_details, and reflection_prompt.\n"
+        "You MUST return your output as a valid JSON object matching the PromptClassificationResult schema."
+    )
+
+    for attempt in range(2):
+        try:
+            is_openai_official = not base_url or "api.openai.com" in base_url
+            
+            if is_openai_official and model.startswith("gpt-"):
+                start_time = time.perf_counter()
+                response = await client.beta.chat.completions.parse(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format=PromptClassificationResult
+                )
+                latency_ms = int((time.perf_counter() - start_time) * 1000)
+                parsed = response.choices[0].message.parsed
+                if parsed:
+                    if parsed.classification == "divergent" and parsed.subtype not in ["fluency", "flexibility", "originality", "elaboration"]:
+                        parsed.subtype = None
+                    elif parsed.classification == "convergent" and parsed.subtype not in ["factual_lookup", "computation", "code_debugging", "decision_making", "other"]:
+                        parsed.subtype = "other"
+                    
+                    if parsed.confidence < CONFIDENCE_THRESHOLD:
+                        logger.warning(f"LLM confidence {parsed.confidence} below threshold {CONFIDENCE_THRESHOLD}. Falling back to heuristic classifier.")
+                        heuristic_res = classify_heuristically(prompt)
+                        heuristic_res.reasoning = f"{heuristic_res.reasoning} (LLM confidence below threshold, using heuristic fallback)"
+                        return heuristic_res
+                    
+                    parsed.latency_ms = latency_ms
+                    parsed.total_tokens = _extract_tokens(response)
+                    
+                    _put_cache(cache_key, parsed)
+                    return parsed
+                else:
+                    raise ValueError("Parsed response is None")
+            else:
+                start_time = time.perf_counter()
+                response = await client.chat.completions.create(
                     model=model,
                     messages=[
                         {"role": "system", "content": system_prompt},

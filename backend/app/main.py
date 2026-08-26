@@ -4,16 +4,17 @@ import json
 import hmac
 import hashlib
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 
 from . import session_store
-from .classifier import classify_prompt, PromptClassificationResult
+from .classifier import classify_prompt, aclassify_prompt, PromptClassificationResult
 from .overreliance import calculate_overreliance
 
 load_dotenv()
@@ -224,7 +225,7 @@ class SessionHistoryResponse(BaseModel):
     history: List[dict]
     session_summary: SessionSummary
 
-def build_session_summary(history) -> SessionSummary:
+def build_session_summary(history, recent_history=None) -> SessionSummary:
     total = len(history)
     if total == 0:
         return SessionSummary(
@@ -241,7 +242,7 @@ def build_session_summary(history) -> SessionSummary:
     conv_pct = round((convergent_count / total) * 100, 1)
     div_pct = round((divergent_count / total) * 100, 1)
     
-    overreliance_data = calculate_overreliance(history)
+    overreliance_data = calculate_overreliance(recent_history if recent_history is not None else history)
     
     return SessionSummary(
         total_prompts=total,
@@ -259,7 +260,7 @@ def create_session():
     return {"session_id": generate_signed_session_id()}
 
 @app.post("/api/classify", response_model=ClassifyResponse, dependencies=[Depends(rate_limit)])
-def classify(request: ClassifyRequest):
+async def classify(request: ClassifyRequest, db: Session = Depends(session_store.get_db)):
     """
     Submits a user prompt for classification, records it in the database session,
     and returns the result with a rolling overreliance analysis score.
@@ -269,7 +270,7 @@ def classify(request: ClassifyRequest):
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
         
     try:
-        result = classify_prompt(request.prompt)
+        result = await aclassify_prompt(request.prompt)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -286,11 +287,14 @@ def classify(request: ClassifyRequest):
         latency_ms=result.latency_ms,
         total_tokens=result.total_tokens,
         explanation_details=json.dumps(result.explanation_details.model_dump()) if result.explanation_details else None,
-        reflection_prompt=result.reflection_prompt
+        reflection_prompt=result.reflection_prompt,
+        db=db
     )
     
-    history = session_store.get_session_history(request.session_id)
-    summary = build_session_summary(history)
+    history = session_store.get_session_history(request.session_id, db=db)
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+    recent_history = session_store.get_recent_session_history(request.session_id, cutoff=cutoff, db=db)
+    summary = build_session_summary(history, recent_history=recent_history)
     
     return ClassifyResponse(
         id=record.id,
@@ -309,13 +313,15 @@ def classify(request: ClassifyRequest):
     )
 
 @app.get("/api/session/{session_id}", response_model=SessionHistoryResponse)
-def get_session(session_id: str):
+async def get_session(session_id: str, db: Session = Depends(session_store.get_db)):
     """
     Retrieves the complete history of prompts and classification summaries for a given session.
     """
     check_session_id(session_id)
-    history = session_store.get_session_history(session_id)
-    summary = build_session_summary(history)
+    history = session_store.get_session_history(session_id, db=db)
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+    recent_history = session_store.get_recent_session_history(session_id, cutoff=cutoff, db=db)
+    summary = build_session_summary(history, recent_history=recent_history)
     
     history_list = []
     for r in history:
@@ -340,10 +346,10 @@ def get_session(session_id: str):
     )
 
 @app.delete("/api/session/{session_id}")
-def delete_session(session_id: str):
+async def delete_session(session_id: str, db: Session = Depends(session_store.get_db)):
     """
     Clears all recorded prompts and resets the cognitive scoring context for the session.
     """
     check_session_id(session_id)
-    session_store.clear_session_history(session_id)
+    session_store.clear_session_history(session_id, db=db)
     return {"message": "Session history cleared successfully"}
