@@ -1,4 +1,5 @@
 {
+  "mode": "heuristic",
   "metrics": {
     "overall_accuracy": 1.0,
     "class_accuracy": 1.0,
@@ -20,9 +21,10 @@
       }
     },
     "latency_ms": {
-      "p50": 0.125,
-      "p95": 1.309
-    }
+      "p50": 0.087,
+      "p95": 1.537
+    },
+    "total_tokens_consumed": 0
   },
   "traces": {
     "precision": 1.0,

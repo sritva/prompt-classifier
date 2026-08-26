@@ -4,10 +4,11 @@ import json
 import time
 import argparse
 import statistics
+from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.classifier import classify_heuristically
+from app.classifier import classify_heuristically, classify_prompt
 
 def calculate_metrics(y_true, y_pred, labels):
     metrics = {}
@@ -50,7 +51,7 @@ def print_confusion_matrix(matrix, labels):
         row_str = f"{str(actual):<25} | " + " | ".join(f"{row[str(l)]:<15}" for l in labels)
         print(row_str)
 
-def evaluate_file(dataset_path):
+def evaluate_file(dataset_path, mode="heuristic", concurrency=4):
     if not os.path.exists(dataset_path):
         return None
 
@@ -60,22 +61,38 @@ def evaluate_file(dataset_path):
             if line.strip():
                 prompts.append(json.loads(line))
 
+    def run_inference(item):
+        prompt_text = item["prompt"]
+        t0 = time.perf_counter()
+        if mode == "llm":
+            result = classify_prompt(prompt_text)
+        else:
+            result = classify_heuristically(prompt_text)
+        duration_ms = (time.perf_counter() - t0) * 1000.0
+        return item, result, duration_ms
+
+    if mode == "llm" and len(prompts) > 1:
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            results_tuples = list(executor.map(run_inference, prompts))
+    else:
+        results_tuples = [run_inference(p) for p in prompts]
+
     y_true_class = []
     y_pred_class = []
     y_true_subtype = []
     y_pred_subtype = []
     latencies = []
+    total_tokens_list = []
     misclassified = []
     
-    for item in prompts:
+    for item, result, duration_ms in results_tuples:
         prompt_text = item["prompt"]
         expected_class = item["expected_classification"]
         expected_subtype = item.get("expected_subtype")
         
-        t0 = time.perf_counter()
-        result = classify_heuristically(prompt_text)
-        duration_ms = (time.perf_counter() - t0) * 1000.0
         latencies.append(duration_ms)
+        if result.total_tokens:
+            total_tokens_list.append(result.total_tokens)
         
         pred_class = result.classification
         pred_subtype = None if pred_class == "divergent" else result.subtype
@@ -97,7 +114,8 @@ def evaluate_file(dataset_path):
                 "actual": {
                     "classification": pred_class,
                     "subtype": pred_subtype,
-                    "confidence": result.confidence
+                    "confidence": result.confidence,
+                    "is_heuristic": getattr(result, "is_heuristic", False)
                 }
             })
             
@@ -126,6 +144,7 @@ def evaluate_file(dataset_path):
     p95_latency = round(statistics.quantiles(latencies, n=20)[18], 3) if len(latencies) >= 20 else round(max(latencies or [0.0]), 3)
     
     return {
+        "mode": mode,
         "metrics": {
             "overall_accuracy": round(overall_accuracy, 4),
             "class_accuracy": round(class_accuracy, 4),
@@ -135,7 +154,8 @@ def evaluate_file(dataset_path):
             "latency_ms": {
                 "p50": p50_latency,
                 "p95": p95_latency
-            }
+            },
+            "total_tokens_consumed": sum(total_tokens_list) if total_tokens_list else 0
         },
         "confusion_matrices": {
             "classification": class_cm,
@@ -252,12 +272,15 @@ def evaluate_traces_file(traces_path):
     }
 
 def print_report(results, filename, checks=None, traces_result=None):
-    print(f"\n================ EVALUATION RESULTS ({filename}) ================")
+    mode_str = results.get("mode", "heuristic").upper()
+    print(f"\n================ EVALUATION RESULTS ({filename} | Mode: {mode_str}) ================")
     print(f"Total Prompts:                   {results['total_prompts']}")
     print(f"Overall Accuracy (Both correct): {results['metrics']['overall_accuracy'] * 100:.2f}%")
     print(f"Classification Accuracy:         {results['metrics']['class_accuracy'] * 100:.2f}%")
     print(f"Subtype Accuracy:                {results['metrics']['subtype_accuracy'] * 100:.2f}%")
     print(f"Latency p50 / p95:               {results['metrics']['latency_ms']['p50']}ms / {results['metrics']['latency_ms']['p95']}ms")
+    if results['metrics'].get('total_tokens_consumed', 0) > 0:
+        print(f"Total Tokens Consumed:           {results['metrics']['total_tokens_consumed']}")
     print(f"Total Misclassified:             {len(results['misclassified'])}")
     print("======================================================")
     
@@ -291,8 +314,10 @@ def print_report(results, filename, checks=None, traces_result=None):
             print(f"[{status}] {c['name']:<25} | Target: {c['target']:<10} | Actual: {c['actual']:<10}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate Prompt Heuristics")
+    parser = argparse.ArgumentParser(description="Evaluate Prompt Heuristics & LLM Classifier")
     parser.add_argument("--dataset", default="train.jsonl", help="Dataset path relative to evaluate.py or absolute")
+    parser.add_argument("--mode", choices=["heuristic", "llm"], default="heuristic", help="Evaluation mode: heuristic fallback or real LLM classifier")
+    parser.add_argument("--concurrency", type=int, default=4, help="Concurrency for LLM evaluation requests")
     parser.add_argument("--traces", default="session_traces.jsonl", help="Session traces dataset path")
     parser.add_argument("--check-targets", action="store_true", help="Fail with non-zero code if targets not met")
     args = parser.parse_args()
@@ -308,7 +333,7 @@ def main():
         target_path = os.path.join(os.path.dirname(__file__), "train.jsonl")
         target_filename = "train.jsonl"
         
-    target_results = evaluate_file(target_path)
+    target_results = evaluate_file(target_path, mode=args.mode, concurrency=args.concurrency)
     
     traces_filename = args.traces
     if not os.path.isabs(traces_filename):
@@ -323,6 +348,7 @@ def main():
     results_json_path = os.path.join(os.path.dirname(__file__), "results.json")
     with open(results_json_path, "w", encoding="utf-8") as f:
         json.dump({
+            "mode": args.mode,
             "metrics": target_results["metrics"],
             "traces": traces_result,
             "misclassified": target_results["misclassified"]
