@@ -10,10 +10,9 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    if os.getenv("VERCEL"):
-        DATABASE_URL = "sqlite:////tmp/prompt_classifier.db"
-    else:
-        DATABASE_URL = "sqlite:///./prompt_classifier.db"
+    if os.getenv("ENVIRONMENT") == "production" or os.getenv("VERCEL") == "1":
+        raise RuntimeError("DATABASE_URL environment variable is required in production.")
+    DATABASE_URL = "sqlite:///./prompt_classifier.db"
 
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
