@@ -1,39 +1,28 @@
-import React, { useEffect, useState } from "react";
-import {
-  getOrCreateSessionId,
-  resetSessionId,
-  classifyPrompt,
-  getSessionHistory,
-  clearSessionHistory,
-} from "./api";
-import type { PromptRecord, SessionSummary } from "./types";
+import React, { useEffect, useState, useMemo } from "react";
+import { useSession } from "./hooks/useSession";
 import { Glyph } from "./components/Glyph";
 import { StatsChart } from "./components/StatsChart";
+import { PromptInputForm } from "./components/PromptInputForm";
+import { OverrelianceBanner } from "./components/OverrelianceBanner";
+import { CognitiveDetailModal } from "./components/CognitiveDetailModal";
+import { HistoryList } from "./components/HistoryList";
 
 export const App: React.FC = () => {
-  const [sessionId, setSessionId] = useState<string>("");
-  const [prompt, setPrompt] = useState<string>("");
-  const [history, setHistory] = useState<PromptRecord[]>([]);
-  const [summary, setSummary] = useState<SessionSummary | null>(null);
-  const [latestResult, setLatestResult] = useState<PromptRecord | null>(null);
-  const [selectedPrompt, setSelectedPrompt] = useState<PromptRecord | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [dismissedWarning, setDismissedWarning] = useState<boolean>(false);
-  const [showInfo, setShowInfo] = useState<boolean>(false);
+  const {
+    history,
+    summary,
+    latestResult,
+    selectedPrompt,
+    setSelectedPrompt,
+    loading,
+    error,
+    dismissedWarning,
+    setDismissedWarning,
+    submitPrompt,
+    clearSession,
+  } = useSession();
 
-  useEffect(() => {
-    const initSession = async () => {
-      try {
-        const id = await getOrCreateSessionId();
-        setSessionId(id);
-        fetchHistory(id);
-      } catch (err: any) {
-        setError(err.message || "Failed to initialize secure session.");
-      }
-    };
-    initSession();
-  }, []);
+  const [showInfo, setShowInfo] = useState<boolean>(false);
 
   useEffect(() => {
     if (window.location.pathname !== "/") {
@@ -47,64 +36,7 @@ export const App: React.FC = () => {
     }
   }, [selectedPrompt, latestResult]);
 
-  const fetchHistory = async (id: string) => {
-    try {
-      const data = await getSessionHistory(id);
-      setHistory(data.history);
-      setSummary(data.session_summary);
-      if (data.history.length > 0) {
-        setLatestResult(data.history[data.history.length - 1]);
-      } else {
-        setLatestResult(null);
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to load session history.");
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prompt.trim()) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await classifyPrompt(prompt, sessionId);
-      setLatestResult(result);
-      setHistory((prev) => [...prev, result]);
-      setSummary(result.session_summary);
-      setPrompt("");
-      if (result.session_summary.overreliance_signal !== "none") {
-        setDismissedWarning(false);
-      }
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred during classification.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClear = async () => {
-    if (!window.confirm("Are you sure you want to clear this session's history?")) {
-      return;
-    }
-    try {
-      await clearSessionHistory(sessionId);
-      const newId = await resetSessionId();
-      setSessionId(newId);
-      setHistory([]);
-      setSummary(null);
-      setLatestResult(null);
-      setSelectedPrompt(null);
-      setDismissedWarning(false);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to clear session.");
-    }
-  };
-
-  const consecutiveConvergent = React.useMemo(() => {
+  const consecutiveConvergent = useMemo(() => {
     let count = 0;
     for (let i = history.length - 1; i >= 0; i--) {
       if (history[i].classification === "convergent") {
@@ -116,7 +48,7 @@ export const App: React.FC = () => {
     return count;
   }, [history]);
 
-  const actionableGuidance = React.useMemo(() => {
+  const actionableGuidance = useMemo(() => {
     if (!summary || summary.overreliance_signal === "none") return null;
     const recentSubtypes = history.slice(-5).map((h) => h.subtype);
     if (recentSubtypes.includes("decision_making")) {
@@ -131,15 +63,14 @@ export const App: React.FC = () => {
     return "Draft your own hypothesis first, then use AI to critique edge cases rather than accepting the initial answer.";
   }, [summary, history]);
 
-  const glyphState = latestResult
-    ? latestResult.classification
-    : "neutral";
+  const glyphState = latestResult ? latestResult.classification : "neutral";
 
-  const showWarning =
-    summary &&
-    (summary.overreliance_signal === "high" ||
-      summary.overreliance_signal === "moderate") &&
-    !dismissedWarning;
+  const handleClearConfirm = async () => {
+    if (!window.confirm("Are you sure you want to clear this session's history?")) {
+      return;
+    }
+    await clearSession();
+  };
 
   if (window.location.pathname !== "/") {
     return (
@@ -170,53 +101,14 @@ export const App: React.FC = () => {
         <Glyph state={glyphState} />
       </header>
 
-      {showWarning && summary && (
-        <section
-          className="overreliance-banner"
-          id="overreliance-banner"
-          aria-live="polite"
-        >
-          <div className="banner-header">
-            <span className="banner-title">
-              WARNING: COGNITIVE OVERRELIANCE ({summary.overreliance_signal.toUpperCase()})
-            </span>
-            <button
-              onClick={() => setDismissedWarning(true)}
-              className="banner-dismiss-btn"
-              aria-label="Dismiss overreliance warning"
-            >
-              dismiss
-            </button>
-          </div>
-          <p className="banner-body">
-            You have submitted multiple convergent prompts in the last 10 minutes (Score: {summary.overreliance_score}). 
-            HCI cognitive research demonstrates that automating analytical judgment risks automation bias.
-          </p>
-          {actionableGuidance && (
-            <div className="banner-guidance" style={{ borderLeft: "3px solid var(--color-warning-border)", paddingLeft: "0.75rem", marginTop: "0.5rem" }}>
-              <strong>Recommended Action:</strong> {actionableGuidance}
-            </div>
-          )}
-          {latestResult?.reflection_prompt && (
-            <div className="banner-reflection-friction">
-              <strong>Reflective Challenge:</strong> "{latestResult.reflection_prompt}"
-            </div>
-          )}
-        </section>
-      )}
-
-      {consecutiveConvergent >= 3 && !dismissedWarning && (
-        <section className="nudge-banner" id="progressive-nudge" style={{ backgroundColor: "#201D1A", border: "1px solid #7D5A2B", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "#D49B55", textTransform: "uppercase", fontWeight: "bold" }}>
-              Progressive Reflection Nudge ({consecutiveConvergent} consecutive convergent queries)
-            </span>
-          </div>
-          <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--color-text)", lineHeight: "1.4" }}>
-            Notice the streak of focused tasks. Try asking a divergent or exploratory question to balance your cognitive workflow.
-          </p>
-        </section>
-      )}
+      <OverrelianceBanner
+        summary={summary}
+        dismissedWarning={dismissedWarning}
+        onDismiss={() => setDismissedWarning(true)}
+        actionableGuidance={actionableGuidance}
+        latestReflectionPrompt={latestResult?.reflection_prompt}
+        consecutiveConvergent={consecutiveConvergent}
+      />
 
       {error && (
         <div className="error-banner" id="error-banner" aria-live="assertive">
@@ -315,30 +207,10 @@ export const App: React.FC = () => {
         )}
       </section>
 
-      <main>
-        <form onSubmit={handleSubmit} className="prompt-form" id="prompt-form">
-          <div className="input-wrapper">
-            <textarea
-              className="prompt-textarea"
-              id="prompt-textarea"
-              placeholder="Submit a prompt to analyze thinking style..."
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              disabled={loading}
-              aria-label="Prompt text input"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="submit-btn"
-            id="submit-btn"
-            disabled={loading || !prompt.trim()}
-          >
-            {loading ? "Analyzing..." : "Classify Prompt"}
-          </button>
-        </form>
-      </main>
+      <PromptInputForm
+        onSubmit={async (p) => { await submitPrompt(p); }}
+        loading={loading}
+      />
 
       {latestResult && (
         <section className="result-card" id="latest-result">
@@ -384,108 +256,10 @@ export const App: React.FC = () => {
         </section>
       )}
 
-      {selectedPrompt && (
-        <section className="details-card" id="selected-details">
-          <div className="details-header-row">
-            <h2 className="details-title">selected prompt analysis</h2>
-            <button onClick={() => setSelectedPrompt(null)} className="close-details-btn">
-              Back to Latest
-            </button>
-          </div>
-          
-          <div className="details-body">
-            <p className="details-prompt-text">"{selectedPrompt.prompt}"</p>
-            
-            <div className="details-meta-grid">
-              <div className="detail-field">
-                <span className="detail-label">Classification</span>
-                <span className={`detail-value badge ${selectedPrompt.classification}`}>
-                  {selectedPrompt.classification}
-                </span>
-              </div>
-              {selectedPrompt.subtype && (
-                <div className="detail-field">
-                  <span className="detail-label">Subtype / Domain</span>
-                  <span className="detail-value">{selectedPrompt.subtype}</span>
-                </div>
-              )}
-              <div className="detail-field">
-                <span className="detail-label">Confidence</span>
-                <span className="detail-value">{Math.round(selectedPrompt.confidence * 100)}%</span>
-              </div>
-              {selectedPrompt.latency_ms !== undefined && selectedPrompt.latency_ms !== null && (
-                <div className="detail-field">
-                  <span className="detail-label">Latency</span>
-                  <span className="detail-value">{selectedPrompt.latency_ms} ms</span>
-                </div>
-              )}
-              {selectedPrompt.total_tokens !== undefined && selectedPrompt.total_tokens !== null && (
-                <div className="detail-field">
-                  <span className="detail-label">Tokens Used</span>
-                  <span className="detail-value">{selectedPrompt.total_tokens}</span>
-                </div>
-              )}
-            </div>
-
-            <p className="details-reasoning"><strong>Reasoning:</strong> {selectedPrompt.reasoning}</p>
-
-            {selectedPrompt.reflection_prompt && (
-              <div className="details-reflection-box">
-                <span className="box-title">Tailored Reflection Challenge</span>
-                <p className="box-content">"{selectedPrompt.reflection_prompt}"</p>
-              </div>
-            )}
-
-            {selectedPrompt.explanation_details && (
-              <div className="details-explanation-section">
-                <h3 className="section-title">Structured Explanation Details</h3>
-                <div className="explanation-grid">
-                  <div className="explanation-field">
-                    <span className="field-label">Complexity:</span>
-                    <span className={`field-value val-${selectedPrompt.explanation_details.complexity}`}>
-                      {selectedPrompt.explanation_details.complexity}
-                    </span>
-                  </div>
-                  <div className="explanation-field">
-                    <span className="field-label">Factual Dependency:</span>
-                    <span className={`field-value val-${selectedPrompt.explanation_details.factual_dependency}`}>
-                      {selectedPrompt.explanation_details.factual_dependency}
-                    </span>
-                  </div>
-                  <div className="explanation-field">
-                    <span className="field-label">Creative Freedom Score:</span>
-                    <span className="field-value">
-                      {selectedPrompt.explanation_details.creative_freedom_score}
-                    </span>
-                  </div>
-                </div>
-
-                {selectedPrompt.explanation_details.given_inputs && selectedPrompt.explanation_details.given_inputs.length > 0 && (
-                  <div className="inputs-outputs-section">
-                    <strong>Given Inputs:</strong>
-                    <ul>
-                      {selectedPrompt.explanation_details.given_inputs.map((inp, i) => (
-                        <li key={i}>{inp}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {selectedPrompt.explanation_details.expected_outputs && selectedPrompt.explanation_details.expected_outputs.length > 0 && (
-                  <div className="inputs-outputs-section">
-                    <strong>Expected Outputs:</strong>
-                    <ul>
-                      {selectedPrompt.explanation_details.expected_outputs.map((out, i) => (
-                        <li key={i}>{out}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
+      <CognitiveDetailModal
+        selectedPrompt={selectedPrompt}
+        onClose={() => setSelectedPrompt(null)}
+      />
 
       {summary && summary.total_prompts > 0 && (
         <section className="stats-box" id="session-stats">
@@ -535,57 +309,12 @@ export const App: React.FC = () => {
         </section>
       )}
 
-      {history.length > 0 && (
-        <section className="history-section" id="history-section">
-          <div className="history-header-row">
-            <h2 className="history-title">session timeline</h2>
-            <button onClick={handleClear} className="clear-btn" id="clear-btn">
-              Reset Session
-            </button>
-          </div>
-
-          <div className="history-feed">
-            {[...history].reverse().map((item, index) => (
-              <div
-                key={item.id || index}
-                className={`history-item ${item.classification} ${selectedPrompt?.id === item.id ? "selected" : ""}`}
-                onClick={() => setSelectedPrompt(item)}
-                style={{ cursor: "pointer" }}
-              >
-                <p className="history-prompt">"{item.prompt}"</p>
-                <div className="history-meta">
-                  <span
-                    className={
-                      item.classification === "convergent"
-                        ? "state-convergent"
-                        : "state-divergent"
-                    }
-                  >
-                    {item.classification}
-                    {item.subtype && `:${item.subtype}`}
-                  </span>
-                  <span>•</span>
-                  <span>{Math.round(item.confidence * 100)}% confidence</span>
-                  {item.latency_ms !== undefined && item.latency_ms !== null && (
-                    <>
-                      <span>•</span>
-                      <span>{item.latency_ms}ms</span>
-                    </>
-                  )}
-                  <span>•</span>
-                  <span>
-                    {new Date(item.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-                <p className="history-reasoning">{item.reasoning}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <HistoryList
+        history={history}
+        selectedPromptId={selectedPrompt?.id}
+        onSelectPrompt={(item) => setSelectedPrompt(item)}
+        onClear={handleClearConfirm}
+      />
 
       <footer className="app-footer">
         <p className="footer-quote">
