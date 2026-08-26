@@ -292,7 +292,7 @@ def print_report(results, filename, checks=None, traces_result=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate Prompt Heuristics")
-    parser.add_argument("--dataset", default="benchmark_dataset.jsonl", help="Dataset path relative to evaluate.py or absolute")
+    parser.add_argument("--dataset", default="train.jsonl", help="Dataset path relative to evaluate.py or absolute")
     parser.add_argument("--traces", default="session_traces.jsonl", help="Session traces dataset path")
     parser.add_argument("--check-targets", action="store_true", help="Fail with non-zero code if targets not met")
     args = parser.parse_args()
@@ -305,8 +305,8 @@ def main():
         target_filename = os.path.basename(target_filename)
         
     if not os.path.exists(target_path):
-        target_path = os.path.join(os.path.dirname(__file__), "dataset.jsonl")
-        target_filename = "dataset.jsonl"
+        target_path = os.path.join(os.path.dirname(__file__), "train.jsonl")
+        target_filename = "train.jsonl"
         
     target_results = evaluate_file(target_path)
     

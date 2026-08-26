@@ -8,13 +8,7 @@
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 100
-      },
-      "divergent": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1": 1.0,
-        "support": 20
+        "support": 36
       }
     },
     "subtype": {
@@ -22,42 +16,12 @@
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 20
-      },
-      "computation": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1": 1.0,
-        "support": 20
-      },
-      "code_debugging": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1": 1.0,
-        "support": 20
-      },
-      "decision_making": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1": 1.0,
-        "support": 20
-      },
-      "other": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1": 1.0,
-        "support": 20
-      },
-      "None": {
-        "precision": 1.0,
-        "recall": 1.0,
-        "f1": 1.0,
-        "support": 20
+        "support": 36
       }
     },
     "latency_ms": {
-      "p50": 0.26,
-      "p95": 0.469
+      "p50": 0.125,
+      "p95": 1.309
     }
   },
   "traces": {
@@ -81,13 +45,13 @@
         "session_id": "trace_overreliance_decisions_1",
         "expected_signal": "high",
         "predicted_signal": "high",
-        "score": 9
+        "score": 8
       },
       {
         "session_id": "trace_overreliance_mixed_risk_2",
         "expected_signal": "moderate",
         "predicted_signal": "moderate",
-        "score": 6
+        "score": 5
       },
       {
         "session_id": "trace_healthy_ambiguous_low_conf_3",
