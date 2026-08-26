@@ -191,6 +191,7 @@ class ClassifyResponse(BaseModel):
     total_tokens: Optional[int] = None
     explanation_details: Optional[dict] = None
     reflection_prompt: Optional[str] = None
+    is_heuristic: bool = False
     session_summary: SessionSummary
 
 class SessionHistoryResponse(BaseModel):
@@ -278,6 +279,7 @@ def classify(request: ClassifyRequest):
         total_tokens=record.total_tokens,
         explanation_details=json.loads(record.explanation_details) if record.explanation_details else None,
         reflection_prompt=record.reflection_prompt,
+        is_heuristic=result.is_heuristic,
         session_summary=summary
     )
 

@@ -64,6 +64,10 @@ class PromptClassificationResult(BaseModel):
         default=None,
         description="Tailored, mindful reflection prompt for convergent prompts. Null for divergent prompts."
     )
+    is_heuristic: bool = Field(
+        default=False,
+        description="Whether the classification was produced by the local heuristic fallback."
+    )
 
 def classify_heuristically(prompt: str) -> PromptClassificationResult:
     p = prompt.strip().lower()
@@ -143,25 +147,22 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
     margin = top_score - second_score
     
     if top_score == 0.0:
+        classification = "convergent"
+        subtype = "other"
+        confidence = 0.50
         if "?" in p:
-            classification = "convergent"
-            subtype = "other"
-            confidence = 0.55
             reasoning = "Defaulted to convergent (other) due to presence of question punctuation without distinct domain cues."
         else:
-            classification = "convergent"
-            subtype = "other"
-            confidence = 0.50
             reasoning = "Defaulted to convergent (other) due to lack of distinct divergent or convergent cues."
     elif top_cat == "divergent":
         classification = "divergent"
         subtype = "originality"
-        confidence = min(0.98, max(0.65, 0.70 + 0.05 * top_score + 0.05 * margin))
+        confidence = 0.85
         reasoning = "Classified as divergent due to strong creative generation, ideation, or open-ended phrasing."
     else:
         classification = "convergent"
         subtype = top_cat
-        confidence = min(0.98, max(0.65, 0.70 + 0.05 * top_score + 0.05 * margin))
+        confidence = 0.85
         if top_cat == "factual_lookup":
             reasoning = "Classified as factual lookup based on specific entity, definition, or verifiable reference query cues."
         elif top_cat == "computation":
@@ -237,7 +238,8 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
         explanation_details=explanation_details,
         reflection_prompt=reflection_prompt,
         latency_ms=0,
-        total_tokens=0
+        total_tokens=0,
+        is_heuristic=True
     )
 
 
