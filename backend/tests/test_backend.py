@@ -475,3 +475,37 @@ def test_cache_ttl_expiration():
     new_time, _ = CLASSIFIER_CACHE[cache_key]
     assert new_time > stored_time
 
+
+def test_classifier_true_lru_cache_eviction(monkeypatch):
+    import app.classifier as classifier_mod
+    from app.classifier import CLASSIFIER_CACHE, classify_prompt
+    import hashlib
+
+    CLASSIFIER_CACHE.clear()
+    monkeypatch.setattr(classifier_mod, "MAX_CACHE_SIZE", 2)
+
+    prompt_a = "Prompt A for LRU test"
+    prompt_b = "Prompt B for LRU test"
+    prompt_c = "Prompt C for LRU test"
+
+    def get_key(p):
+        h = hashlib.sha256(p.strip().lower().encode("utf-8")).hexdigest()
+        return f"v{classifier_mod.CLASSIFIER_VERSION}:{os.getenv('CLASSIFIER_MODEL', 'gpt-4o-mini')}:{h}"
+
+    key_a = get_key(prompt_a)
+    key_b = get_key(prompt_b)
+    key_c = get_key(prompt_c)
+
+    classify_prompt(prompt_a)
+    classify_prompt(prompt_b)
+    assert list(CLASSIFIER_CACHE.keys()) == [key_a, key_b]
+
+    classify_prompt(prompt_a)
+    assert list(CLASSIFIER_CACHE.keys()) == [key_b, key_a]
+
+    classify_prompt(prompt_c)
+    assert key_b not in CLASSIFIER_CACHE
+    assert key_a in CLASSIFIER_CACHE
+    assert key_c in CLASSIFIER_CACHE
+    assert list(CLASSIFIER_CACHE.keys()) == [key_a, key_c]
+

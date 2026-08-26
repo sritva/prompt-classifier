@@ -4,6 +4,7 @@ import hashlib
 import re
 import logging
 from typing import Literal, Optional
+from collections import OrderedDict
 from pydantic import BaseModel, Field
 from openai import OpenAI
 
@@ -14,8 +15,14 @@ CLASSIFIER_VERSION = "2.0.0"
 CACHE_TTL_SECONDS = 86400
 CONFIDENCE_THRESHOLD = 0.6
 
-CLASSIFIER_CACHE = {}
+CLASSIFIER_CACHE: OrderedDict[str, tuple[float, "PromptClassificationResult"]] = OrderedDict()
 MAX_CACHE_SIZE = 500
+
+def _put_cache(key: str, val: "PromptClassificationResult") -> None:
+    CLASSIFIER_CACHE[key] = (time.time(), val)
+    CLASSIFIER_CACHE.move_to_end(key)
+    if len(CLASSIFIER_CACHE) > MAX_CACHE_SIZE:
+        CLASSIFIER_CACHE.popitem(last=False)
 
 _CLIENT_CACHE = {}
 
@@ -277,6 +284,7 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
     if cache_key in CLASSIFIER_CACHE:
         cached_time, cached_result = CLASSIFIER_CACHE[cache_key]
         if time.time() - cached_time < CACHE_TTL_SECONDS:
+            CLASSIFIER_CACHE.move_to_end(cache_key)
             logger.info(f"In-memory cache hit: '{normalized}'")
             return cached_result
         else:
@@ -309,9 +317,7 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                 latency_ms=0,
                 total_tokens=0
             )
-            CLASSIFIER_CACHE[cache_key] = (time.time(), result)
-            if len(CLASSIFIER_CACHE) > MAX_CACHE_SIZE:
-                CLASSIFIER_CACHE.pop(next(iter(CLASSIFIER_CACHE)))
+            _put_cache(cache_key, result)
             return result
     except Exception as e:
         logger.warning(f"Database cache lookup failed: {e}")
@@ -320,9 +326,7 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
     if not api_key or api_key.strip() == "" or api_key.startswith("your-") or api_key == "placeholder":
         logger.info("LLM_API_KEY is not set or contains placeholders. Falling back to local heuristic classifier.")
         heuristic_res = classify_heuristically(prompt)
-        CLASSIFIER_CACHE[cache_key] = (time.time(), heuristic_res)
-        if len(CLASSIFIER_CACHE) > MAX_CACHE_SIZE:
-            CLASSIFIER_CACHE.pop(next(iter(CLASSIFIER_CACHE)))
+        _put_cache(cache_key, heuristic_res)
         return heuristic_res
 
     base_url = os.getenv("LLM_BASE_URL")
@@ -377,10 +381,7 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                     parsed.latency_ms = latency_ms
                     parsed.total_tokens = _extract_tokens(response)
                     
-                    CLASSIFIER_CACHE[cache_key] = (time.time(), parsed)
-                    if len(CLASSIFIER_CACHE) > MAX_CACHE_SIZE:
-                        CLASSIFIER_CACHE.pop(next(iter(CLASSIFIER_CACHE)))
-                        
+                    _put_cache(cache_key, parsed)
                     return parsed
                 else:
                     raise ValueError("Parsed response is None")
@@ -416,10 +417,7 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                 parsed.latency_ms = latency_ms
                 parsed.total_tokens = _extract_tokens(response)
                 
-                CLASSIFIER_CACHE[cache_key] = (time.time(), parsed)
-                if len(CLASSIFIER_CACHE) > MAX_CACHE_SIZE:
-                    CLASSIFIER_CACHE.pop(next(iter(CLASSIFIER_CACHE)))
-                    
+                _put_cache(cache_key, parsed)
                 return parsed
         except Exception as e:
             logger.warning(f"LLM classification attempt {attempt + 1} failed: {e}")
