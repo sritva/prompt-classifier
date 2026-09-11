@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import App from "../src/App";
 import * as api from "../src/api";
-import { ClassifyResponse, SessionHistoryResponse } from "../src/types";
+import { ClassifyResponse } from "../src/types";
 
 // Mock Recharts since JSDOM does not calculate container dimensions
 vi.mock("recharts", () => {

@@ -15,7 +15,15 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
-    op.add_column('prompt_records', sa.Column('classifier_version', sa.String(), nullable=True, server_default='2.0.0'))
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    columns = [c['name'] for c in insp.get_columns('prompt_records')]
+    if 'classifier_version' not in columns:
+        op.add_column('prompt_records', sa.Column('classifier_version', sa.String(), nullable=True, server_default='2.0.0'))
 
 def downgrade() -> None:
-    op.drop_column('prompt_records', 'classifier_version')
+    conn = op.get_bind()
+    insp = sa.inspect(conn)
+    columns = [c['name'] for c in insp.get_columns('prompt_records')]
+    if 'classifier_version' in columns:
+        op.drop_column('prompt_records', 'classifier_version')

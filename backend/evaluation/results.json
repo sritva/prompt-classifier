@@ -9,7 +9,13 @@
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 36
+        "support": 10
+      },
+      "divergent": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 5
       }
     },
     "subtype": {
@@ -17,12 +23,36 @@
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 36
+        "support": 3
+      },
+      "computation": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 2
+      },
+      "code_debugging": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 3
+      },
+      "decision_making": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 2
+      },
+      "None": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 5
       }
     },
     "latency_ms": {
-      "p50": 0.087,
-      "p95": 1.537
+      "p50": 0.284,
+      "p95": 23.223
     },
     "total_tokens_consumed": 0
   },

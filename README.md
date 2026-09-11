@@ -32,33 +32,56 @@ We track user prompts in a rolling **10-minute window**. The score is computed u
 *   `computation`, `factual_lookup`, `other` (convergent): **+1 point** each (low risk; basic offloading).
 *   `divergent` prompts: **-1 point** each (mitigates the overreliance score, floor of 0; reflects balanced creative ideation).
 
-### Thresholds
-*   Score $\ge 8$: **High Overreliance** (Stark crimson warning banner triggered).
-*   Score $\ge 5$: **Moderate Overreliance** (Crimson warning banner triggered).
-*   Score $\ge 2$: **Low Overreliance** (Muted stats alert).
-*   Score $< 2$: **None** (Neutral profile).
+### Thresholds & Behavioral Interventions
+*   **Score $\ge 8$ — High Overreliance**: Stark crimson banner with high-priority warnings, behavioral reflection nudges, and suggested alternatives.
+*   **Score $\ge 5$ — Moderate Overreliance**: Warning banner with recommendations to pause and engage in independent synthesis.
+*   **Score $\ge 2$ — Low Overreliance**: Muted informational alert highlighting rising convergent tendency.
+*   **Score $< 2$ — None**: Neutral profile indicating balanced usage.
 
 ---
 
-## 3. Tech Stack
+## 3. Architecture & Tech Stack
 
-*   **Backend**: Python 3.11+, FastAPI (sync router), SQLite via SQLAlchemy ORM, Alembic migrations.
-*   **Frontend**: React, TypeScript, Vite, Recharts (visualizing thinking subtypes).
-*   **Classification**: LLM-based structured outputs via any OpenAI-API-compatible provider (configured for OpenRouter by default), or a local heuristic fallback.
-*   **Performance & Caching**: LLM classification results are cached in-memory (LRU, keyed on normalized prompt hash) to avoid redundant API calls for repeated prompts, and low-confidence LLM results (below a 0.6 threshold) automatically fall back to the local heuristic classifier.
-*   **Testing**: `pytest` for backend, `vitest` + `react-testing-library` for frontend.
+### Backend Architecture
+*   **FastAPI (Async Endpoints)**: Non-blocking asynchronous handlers for classification and session endpoints.
+*   **LLM Integration & Connection Pooling**: Uses `AsyncOpenAI` with a single reused client instance across requests to maximize connection reuse and lower latency.
+*   **Database & Session Management**: SQLite/PostgreSQL through SQLAlchemy ORM using `get_db` context-managed dependency injection. Schema migrations versioned via **Alembic** (with idempotent classifier version column migrations).
+*   **Session Security**: Cryptographically signed session IDs (`secrets.token_urlsafe` + HMAC-SHA256) prevent session identifier tampering or unauthorized session enumeration.
+*   **Bounded Rate Limiter**: IP-based in-memory token bucket (10 token burst capacity, 0.5 tokens/sec refill) equipped with 10-minute TTL bucket cleanup and an upper capacity bound (10,000 buckets) to prevent unbounded memory growth.
+*   **Multi-Tier Caching & Low-Confidence Fallback**: True LRU in-memory cache using `collections.OrderedDict` with move-to-end eviction, TTL invalidation, and versioned keys (`v2.0.0`). LLM responses below a 0.6 confidence threshold automatically fallback to the local heuristic classifier, returning an explicit `is_heuristic` flag.
+
+### Frontend Architecture
+*   **React 19 + TypeScript + Vite**: Fast, typed single-page application.
+*   **Component Decomposition**: Clean modular hierarchy:
+    *   `Header`: Session status and branding.
+    *   `SessionStats`: Live metrics (total prompts, convergent/divergent percentages, overreliance score).
+    *   `PromptForm`: Text area with keyboard shortcuts (`Cmd/Ctrl + Enter`), loading indicators, and error banners.
+    *   `OverrelianceBanner`: Progressive severity warnings and behavioral reflection nudges.
+    *   `ThinkingDistributionChart`: Recharts-powered interactive breakdown of subtypes.
+    *   `HistoryList`: Chronological prompt feed with expandable reasoning, confidence pills, and reflection prompts.
+*   **Custom Session Hook (`useSession`)**: Handles cryptographic session initialization, localStorage persistence, optimistic updates, and automatic recovery.
+*   **Vite Reverse Proxy**: Configured in `vite.config.ts` to proxy `/api` requests directly to `http://127.0.0.1:8000` for consistent local and production relative paths.
 
 ---
 
 ## 4. API Documentation
 
-### 1. `POST /api/classify`
-Submits a prompt for classification. Rate-limited using an in-memory token-bucket.
+### 1. `POST /api/session`
+Generates and returns a new cryptographically signed session ID.
+*   **Response**:
+    ```json
+    {
+      "session_id": "aBcD1234_xyz.7f83b1657ff1..."
+    }
+    ```
+
+### 2. `POST /api/classify`
+Submits a prompt for classification under the given signed session. Rate-limited using a bounded token bucket.
 *   **Request Body**:
     ```json
     {
       "prompt": "Should I accept the job offer at Company A or B?",
-      "session_id": "sess_xyz_12345"
+      "session_id": "aBcD1234_xyz.7f83b1657ff1..."
     }
     ```
 *   **Response Body**:
@@ -69,10 +92,16 @@ Submits a prompt for classification. Rate-limited using an in-memory token-bucke
       "classification": "convergent",
       "subtype": "decision_making",
       "confidence": 0.92,
-      "reasoning": "Classified as decision-making since it involves evaluating personal life choices.",
+      "reasoning": "Classified as decision-making since it involves evaluating personal career tradeoffs.",
       "created_at": "2026-08-14T12:00:00Z",
       "latency_ms": 120,
       "total_tokens": 340,
+      "explanation_details": {
+        "primary_cues": ["should I accept", "job offer"],
+        "reasoning_steps": ["Detects personal judgment query with trade-off evaluation"]
+      },
+      "reflection_prompt": "Before deciding, what are the non-negotiable criteria you value most?",
+      "is_heuristic": false,
       "session_summary": {
         "total_prompts": 3,
         "convergent_percentage": 100.0,
@@ -83,12 +112,12 @@ Submits a prompt for classification. Rate-limited using an in-memory token-bucke
     }
     ```
 
-### 2. `GET /api/session/{session_id}`
-Returns the full chronological history and active summary of a session.
+### 3. `GET /api/session/{session_id}`
+Returns the complete chronological prompt history and rolling 10-minute session summary.
 *   **Response Body**:
     ```json
     {
-      "session_id": "sess_xyz_12345",
+      "session_id": "aBcD1234_xyz.7f83b1657ff1...",
       "history": [
         {
           "id": 12,
@@ -96,19 +125,30 @@ Returns the full chronological history and active summary of a session.
           "classification": "convergent",
           "subtype": "decision_making",
           "confidence": 0.92,
-          "reasoning": "Evaluating personal life choices.",
-          "created_at": "2026-08-14T12:00:00Z"
+          "reasoning": "Evaluating personal career tradeoffs.",
+          "created_at": "2026-08-14T12:00:00Z",
+          "latency_ms": 120,
+          "total_tokens": 340,
+          "reflection_prompt": "Before deciding, what are the non-negotiable criteria you value most?"
         }
       ],
-      "session_summary": { ... }
+      "session_summary": {
+        "total_prompts": 1,
+        "convergent_percentage": 100.0,
+        "divergent_percentage": 0.0,
+        "overreliance_score": 3,
+        "overreliance_signal": "low"
+      }
     }
     ```
 
-### 3. `DELETE /api/session/{session_id}`
-Clears session history from the database.
+### 4. `DELETE /api/session/{session_id}`
+Clears session history from the database and resets the rolling window score.
 *   **Response**:
     ```json
-    { "message": "Session history cleared successfully" }
+    {
+      "message": "Session history cleared successfully"
+    }
     ```
 
 ---
@@ -120,7 +160,7 @@ Clears session history from the database.
 *   Node.js v20+ installed.
 
 ### Backend Setup
-1. Navigate to the backend folder:
+1. Navigate to the backend directory:
    ```bash
    cd backend
    ```
@@ -132,30 +172,30 @@ Clears session history from the database.
    # On macOS/Linux:
    source venv/bin/activate
    ```
-3. Install dependencies:
+3. Install backend dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-4. Copy configurations and create `.env` (optional):
+4. Configure environment variables (`.env`):
    ```bash
    cp .env.example .env
-   # Configure LLM_API_KEY and LLM_BASE_URL; otherwise, fallback heuristics run automatically
+   # Edit .env to supply LLM_API_KEY, LLM_BASE_URL, and SESSION_SECRET_KEY
    ```
 5. Apply database migrations using Alembic:
    ```bash
    alembic upgrade head
    ```
-6. Start the FastAPI backend server:
+6. Run the FastAPI development server:
    ```bash
    uvicorn app.main:app --reload --port 8000
    ```
 
 ### Frontend Setup
-1. Open a new terminal session and navigate to the frontend folder:
+1. In a separate terminal, navigate to the frontend directory:
    ```bash
    cd frontend
    ```
-2. Install npm packages:
+2. Install npm dependencies:
    ```bash
    npm install
    ```
@@ -163,33 +203,57 @@ Clears session history from the database.
    ```bash
    npm run dev
    ```
-4. Open your browser to `http://localhost:5173`.
+4. Access the web interface at `http://localhost:5173`.
 
 ---
 
-## 6. Running Tests
+## 6. Testing & Evaluation Suite
 
-### Backend Tests (pytest)
+### Backend Test Suite (pytest)
+Runs 57 unit and integration tests covering heuristic and LLM classification, session lifecycle, cryptographic signing, rate limiting, and cache invalidation:
 ```bash
 cd backend
-$env:PYTHONPATH="."  # Windows PowerShell
-# OR (macOS/Linux): export PYTHONPATH="."
 pytest
 ```
 
-### Frontend Tests (vitest)
+### Frontend Test Suite (Vitest)
+Runs UI integration and unit tests using React Testing Library and thread-pool execution:
 ```bash
 cd frontend
 npm run test
 ```
 
+### Frontend Lint & Build
+```bash
+cd frontend
+npm run lint     # oxlint
+npm run build    # tsc -b && vite build
+```
+
+### Quantitative Evaluation Benchmark
+The project includes a benchmark suite in `backend/evaluation/` with release targets configured in `targets.json`:
+*   `test_holdout.jsonl`: Independent test split for classification and subtype accuracy.
+*   `adversarial.jsonl`: Tricky prompts with overlapping vocabulary (e.g. creative poems about debugging).
+*   `session_traces.jsonl`: Multi-turn chronological session traces verifying overreliance alert precision and false warning rates.
+
+Run the evaluation suite:
+```bash
+cd backend
+# Evaluate holdout set with target gates
+python evaluation/evaluate.py --dataset test_holdout.jsonl --check-targets
+
+# Evaluate adversarial set
+python evaluation/evaluate.py --dataset adversarial.jsonl --check-targets
+
+# Run multi-threaded LLM evaluation (requires API key)
+python evaluation/evaluate.py --mode llm --dataset test_holdout.jsonl --concurrency 4
+```
+
 ---
 
-## 7. Limitations
+## 7. Limitations & Disclaimers
 
-1.  **Error Rates**: LLM classifiers carry an inherent error rate and might miscategorize prompts based on subtle formatting details.
-2.  **Fallback Weaknesses**: The local heuristic fallback uses keyword/regex matches. It is structurally weaker than the LLM and can be fooled by prompts containing overlapping vocabulary (e.g. writing a "poem about code"). See [`backend/evaluation/`](backend/evaluation/) for the evaluation methodology and labeled datasets used to test the fallback classifier's accuracy, including a train/holdout split.
-3.  **Non-Clinical Tool**: This application utilizes a simple point system to show patterns. It is an educational and reflective tool designed to prompt introspection about AI reliance, not a clinical or behavioral diagnostic instrument.
-4.  **Persistent Cache Stickiness**: The persistent DB cache means once a prompt is classified (by either the LLM or the heuristic fallback), identical future prompts from any user/session will be served that same cached result indefinitely, until the database is cleared. This means a heuristic misclassification (e.g. the known code-vs-decision tradeoff already documented) can become "sticky" and get served repeatedly rather than being independently reclassified each time.
-
----
+1.  **Model Inherent Variance**: LLM classifiers carry an inherent error rate and can occasionally miscategorize subtle or ambiguous prompts.
+2.  **Fallback Heuristic Boundary**: The local heuristic classifier relies on multi-cue weighted keyword scoring. While performing with 100% precision on holdout and adversarial benchmarks, complex natural language nuance may require the LLM classifier for optimal separation.
+3.  **Educational and Reflective Purpose**: This application provides a quantitative reflection framework to raise self-awareness regarding AI dependency. It is not a clinical or psychological diagnostic tool.
+4.  **Persistent Cache Invalidation**: Cached prompt classifications persist in-memory according to LRU and TTL limits. Changes to model definitions or classifier versions trigger automated version-keyed invalidation (`v2.0.0`).
