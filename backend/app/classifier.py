@@ -102,6 +102,26 @@ class PromptClassificationResult(BaseModel):
         default=False,
         description="Whether the classification was produced by the local heuristic fallback."
     )
+    model: Optional[str] = Field(
+        default=None,
+        description="The model used or requested."
+    )
+    provider: Optional[str] = Field(
+        default=None,
+        description="The provider used or requested."
+    )
+    is_cached: bool = Field(
+        default=False,
+        description="Whether this result was served from cache."
+    )
+    original_latency_ms: Optional[int] = Field(
+        default=None,
+        description="Original inference latency in ms (if cached)."
+    )
+    original_total_tokens: Optional[int] = Field(
+        default=None,
+        description="Original inference tokens (if cached)."
+    )
 
 def classify_heuristically(prompt: str) -> PromptClassificationResult:
     p = prompt.strip().lower()
@@ -273,7 +293,9 @@ def classify_heuristically(prompt: str) -> PromptClassificationResult:
         reflection_prompt=reflection_prompt,
         latency_ms=0,
         total_tokens=0,
-        is_heuristic=True
+        is_heuristic=True,
+        model="heuristic",
+        provider="local"
     )
 
 
@@ -291,15 +313,32 @@ def _extract_tokens(response) -> Optional[int]:
 def classify_prompt(prompt: str) -> PromptClassificationResult:
     normalized = prompt.strip().lower()
     prompt_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-    model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
-    cache_key = f"v{CLASSIFIER_VERSION}:{model}:{prompt_hash}"
+    
+    api_key = os.getenv("LLM_API_KEY")
+    base_url = os.getenv("LLM_BASE_URL")
+    
+    if not api_key or api_key.strip() == "" or api_key.startswith("your-") or api_key == "placeholder":
+        provider = "local"
+        model = "heuristic"
+    else:
+        provider = "openai" if not base_url or "api.openai.com" in base_url else "custom"
+        model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
+
+    cache_key = f"v{CLASSIFIER_VERSION}:{provider}:{model}:{prompt_hash}"
     
     if cache_key in CLASSIFIER_CACHE:
         cached_time, cached_result = CLASSIFIER_CACHE[cache_key]
         if time.time() - cached_time < CACHE_TTL_SECONDS:
             CLASSIFIER_CACHE.move_to_end(cache_key)
             logger.info(f"In-memory cache hit: '{normalized}'")
-            return cached_result
+            # Clone and set cached flags
+            result_copy = cached_result.model_copy()
+            result_copy.is_cached = True
+            result_copy.original_latency_ms = cached_result.latency_ms
+            result_copy.original_total_tokens = cached_result.total_tokens
+            result_copy.latency_ms = 0
+            result_copy.total_tokens = 0
+            return result_copy
         else:
             del CLASSIFIER_CACHE[cache_key]
 
@@ -308,6 +347,8 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
         import json
         cached_record = session_store.get_cached_prompt_record(
             prompt,
+            model=model,
+            provider=provider,
             classifier_version=CLASSIFIER_VERSION,
             max_age_seconds=CACHE_TTL_SECONDS
         )
@@ -327,15 +368,24 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                 reasoning=cached_record.reasoning,
                 explanation_details=explanation_details,
                 reflection_prompt=cached_record.reflection_prompt,
-                latency_ms=0,
-                total_tokens=0
+                latency_ms=cached_record.latency_ms,
+                total_tokens=cached_record.total_tokens,
+                is_heuristic=cached_record.is_heuristic or False,
+                model=cached_record.model or model,
+                provider=cached_record.provider or provider
             )
             _put_cache(cache_key, result)
-            return result
+            
+            result_copy = result.model_copy()
+            result_copy.is_cached = True
+            result_copy.original_latency_ms = cached_record.latency_ms
+            result_copy.original_total_tokens = cached_record.total_tokens
+            result_copy.latency_ms = 0
+            result_copy.total_tokens = 0
+            return result_copy
     except Exception as e:
         logger.warning(f"Database cache lookup failed: {e}")
 
-    api_key = os.getenv("LLM_API_KEY")
     if not api_key or api_key.strip() == "" or api_key.startswith("your-") or api_key == "placeholder":
         logger.info("LLM_API_KEY is not set or contains placeholders. Falling back to local heuristic classifier.")
         heuristic_res = classify_heuristically(prompt)
@@ -389,10 +439,15 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                         logger.warning(f"LLM confidence {parsed.confidence} below threshold {CONFIDENCE_THRESHOLD}. Falling back to heuristic classifier.")
                         heuristic_res = classify_heuristically(prompt)
                         heuristic_res.reasoning = f"{heuristic_res.reasoning} (LLM confidence below threshold, using heuristic fallback)"
+                        heuristic_res.model = model
+                        heuristic_res.provider = provider
+                        _put_cache(cache_key, heuristic_res)
                         return heuristic_res
                     
                     parsed.latency_ms = latency_ms
                     parsed.total_tokens = _extract_tokens(response)
+                    parsed.model = model
+                    parsed.provider = provider
                     
                     _put_cache(cache_key, parsed)
                     return parsed
@@ -425,10 +480,15 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
                     logger.warning(f"LLM confidence {parsed.confidence} below threshold {CONFIDENCE_THRESHOLD}. Falling back to heuristic classifier.")
                     heuristic_res = classify_heuristically(prompt)
                     heuristic_res.reasoning = f"{heuristic_res.reasoning} (LLM confidence below threshold, using heuristic fallback)"
+                    heuristic_res.model = model
+                    heuristic_res.provider = provider
+                    _put_cache(cache_key, heuristic_res)
                     return heuristic_res
                 
                 parsed.latency_ms = latency_ms
                 parsed.total_tokens = _extract_tokens(response)
+                parsed.model = model
+                parsed.provider = provider
                 
                 _put_cache(cache_key, parsed)
                 return parsed
@@ -442,15 +502,31 @@ def classify_prompt(prompt: str) -> PromptClassificationResult:
 async def aclassify_prompt(prompt: str) -> PromptClassificationResult:
     normalized = prompt.strip().lower()
     prompt_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-    model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
-    cache_key = f"v{CLASSIFIER_VERSION}:{model}:{prompt_hash}"
+    
+    api_key = os.getenv("LLM_API_KEY")
+    base_url = os.getenv("LLM_BASE_URL")
+    
+    if not api_key or api_key.strip() == "" or api_key.startswith("your-") or api_key == "placeholder":
+        provider = "local"
+        model = "heuristic"
+    else:
+        provider = "openai" if not base_url or "api.openai.com" in base_url else "custom"
+        model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
+
+    cache_key = f"v{CLASSIFIER_VERSION}:{provider}:{model}:{prompt_hash}"
     
     if cache_key in CLASSIFIER_CACHE:
         cached_time, cached_result = CLASSIFIER_CACHE[cache_key]
         if time.time() - cached_time < CACHE_TTL_SECONDS:
             CLASSIFIER_CACHE.move_to_end(cache_key)
             logger.info(f"In-memory cache hit: '{normalized}'")
-            return cached_result
+            result_copy = cached_result.model_copy()
+            result_copy.is_cached = True
+            result_copy.original_latency_ms = cached_result.latency_ms
+            result_copy.original_total_tokens = cached_result.total_tokens
+            result_copy.latency_ms = 0
+            result_copy.total_tokens = 0
+            return result_copy
         else:
             del CLASSIFIER_CACHE[cache_key]
 
@@ -459,6 +535,8 @@ async def aclassify_prompt(prompt: str) -> PromptClassificationResult:
         import json
         cached_record = session_store.get_cached_prompt_record(
             prompt,
+            model=model,
+            provider=provider,
             classifier_version=CLASSIFIER_VERSION,
             max_age_seconds=CACHE_TTL_SECONDS
         )
@@ -478,15 +556,24 @@ async def aclassify_prompt(prompt: str) -> PromptClassificationResult:
                 reasoning=cached_record.reasoning,
                 explanation_details=explanation_details,
                 reflection_prompt=cached_record.reflection_prompt,
-                latency_ms=0,
-                total_tokens=0
+                latency_ms=cached_record.latency_ms,
+                total_tokens=cached_record.total_tokens,
+                is_heuristic=cached_record.is_heuristic or False,
+                model=cached_record.model or model,
+                provider=cached_record.provider or provider
             )
             _put_cache(cache_key, result)
-            return result
+            
+            result_copy = result.model_copy()
+            result_copy.is_cached = True
+            result_copy.original_latency_ms = cached_record.latency_ms
+            result_copy.original_total_tokens = cached_record.total_tokens
+            result_copy.latency_ms = 0
+            result_copy.total_tokens = 0
+            return result_copy
     except Exception as e:
         logger.warning(f"Database cache lookup failed: {e}")
 
-    api_key = os.getenv("LLM_API_KEY")
     if not api_key or api_key.strip() == "" or api_key.startswith("your-") or api_key == "placeholder":
         logger.info("LLM_API_KEY is not set or contains placeholders. Falling back to local heuristic classifier.")
         heuristic_res = classify_heuristically(prompt)
@@ -540,10 +627,15 @@ async def aclassify_prompt(prompt: str) -> PromptClassificationResult:
                         logger.warning(f"LLM confidence {parsed.confidence} below threshold {CONFIDENCE_THRESHOLD}. Falling back to heuristic classifier.")
                         heuristic_res = classify_heuristically(prompt)
                         heuristic_res.reasoning = f"{heuristic_res.reasoning} (LLM confidence below threshold, using heuristic fallback)"
+                        heuristic_res.model = model
+                        heuristic_res.provider = provider
+                        _put_cache(cache_key, heuristic_res)
                         return heuristic_res
                     
                     parsed.latency_ms = latency_ms
                     parsed.total_tokens = _extract_tokens(response)
+                    parsed.model = model
+                    parsed.provider = provider
                     
                     _put_cache(cache_key, parsed)
                     return parsed
@@ -576,10 +668,15 @@ async def aclassify_prompt(prompt: str) -> PromptClassificationResult:
                     logger.warning(f"LLM confidence {parsed.confidence} below threshold {CONFIDENCE_THRESHOLD}. Falling back to heuristic classifier.")
                     heuristic_res = classify_heuristically(prompt)
                     heuristic_res.reasoning = f"{heuristic_res.reasoning} (LLM confidence below threshold, using heuristic fallback)"
+                    heuristic_res.model = model
+                    heuristic_res.provider = provider
+                    _put_cache(cache_key, heuristic_res)
                     return heuristic_res
                 
                 parsed.latency_ms = latency_ms
                 parsed.total_tokens = _extract_tokens(response)
+                parsed.model = model
+                parsed.provider = provider
                 
                 _put_cache(cache_key, parsed)
                 return parsed

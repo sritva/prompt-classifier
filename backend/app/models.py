@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -27,6 +27,12 @@ class PromptRecord(Base):
     explanation_details = Column(String, nullable=True)
     reflection_prompt = Column(String, nullable=True)
     classifier_version = Column(String, nullable=True, default="2.0.0")
+    model = Column(String, nullable=True)
+    provider = Column(String, nullable=True)
+    is_heuristic = Column(Boolean, nullable=True, default=False)
+    is_cached = Column(Boolean, nullable=True, default=False)
+    original_latency_ms = Column(Integer, nullable=True)
+    original_total_tokens = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     session = relationship("Session", back_populates="records")

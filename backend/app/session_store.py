@@ -59,6 +59,12 @@ def add_prompt_record(
     explanation_details: str | None = None,
     reflection_prompt: str | None = None,
     classifier_version: str | None = "2.0.0",
+    model: str | None = None,
+    provider: str | None = None,
+    is_heuristic: bool = False,
+    is_cached: bool = False,
+    original_latency_ms: int | None = None,
+    original_total_tokens: int | None = None,
     db: Session | None = None
 ) -> PromptRecord:
     close_db = False
@@ -79,6 +85,12 @@ def add_prompt_record(
             explanation_details=explanation_details,
             reflection_prompt=reflection_prompt,
             classifier_version=classifier_version,
+            model=model,
+            provider=provider,
+            is_heuristic=is_heuristic,
+            is_cached=is_cached,
+            original_latency_ms=original_latency_ms,
+            original_total_tokens=original_total_tokens,
             created_at=datetime.now(timezone.utc)
         )
         db.add(record)
@@ -146,6 +158,8 @@ def clear_session_history(session_id: str, db: Session | None = None) -> None:
 
 def get_cached_prompt_record(
     prompt: str,
+    model: str | None = None,
+    provider: str | None = None,
     classifier_version: str | None = "2.0.0",
     max_age_seconds: int = 86400,
     db: Session | None = None
@@ -162,6 +176,10 @@ def get_cached_prompt_record(
         )
         if classifier_version is not None:
             query = query.filter(PromptRecord.classifier_version == classifier_version)
+        if model is not None:
+            query = query.filter(PromptRecord.model == model)
+        if provider is not None:
+            query = query.filter(PromptRecord.provider == provider)
             
         record = query.order_by(PromptRecord.created_at.desc()).first()
         if record:

@@ -165,7 +165,7 @@ def evaluate_file(dataset_path, mode="heuristic", concurrency=4):
         "total_prompts": len(prompts)
     }
 
-def verify_against_targets(results, targets_path):
+def verify_against_targets(results, targets_path, traces_result=None):
     if not os.path.exists(targets_path):
         return []
         
@@ -173,38 +173,83 @@ def verify_against_targets(results, targets_path):
         targets = json.load(f)
         
     checks = []
+    metrics = results["metrics"]
+    mode = results["mode"]
     
     acc_targets = targets.get("accuracy", {})
-    overall_acc = results["metrics"]["overall_accuracy"]
-    min_overall = acc_targets.get("overall_accuracy", 0.90)
-    checks.append({
-        "name": "Overall Accuracy",
-        "target": f">={min_overall:.2%}",
-        "actual": f"{overall_acc:.2%}",
-        "passed": overall_acc >= min_overall
-    })
-    
+    for acc_key, acc_target in acc_targets.items():
+        if acc_key in metrics:
+            actual = metrics[acc_key]
+            checks.append({
+                "name": f"Accuracy: {acc_key}",
+                "target": f">={acc_target:.2%}",
+                "actual": f"{actual:.2%}",
+                "passed": actual >= acc_target
+            })
+            
     subtype_targets = targets.get("subtypes", {})
-    if "factual_lookup" in subtype_targets:
-        target_fl_recall = subtype_targets["factual_lookup"].get("recall", 0.92)
-        fl_metrics = results["metrics"]["subtype"].get("factual_lookup", {})
-        actual_fl_recall = fl_metrics.get("recall", 0.0)
-        checks.append({
-            "name": "Factual Lookup Recall",
-            "target": f">={target_fl_recall:.2%}",
-            "actual": f"{actual_fl_recall:.2%}",
-            "passed": actual_fl_recall >= target_fl_recall
-        })
-        
+    for st_name, st_metrics in subtype_targets.items():
+        if st_name == "divergent":
+            actual_metrics = metrics["classification"].get(st_name, {})
+        else:
+            actual_metrics = metrics["subtype"].get(st_name, {})
+            
+        for metric_name, target_value in st_metrics.items():
+            actual = actual_metrics.get(metric_name, 0.0)
+            checks.append({
+                "name": f"{st_name.replace('_', ' ').title()} {metric_name.title()}",
+                "target": f">={target_value:.2%}",
+                "actual": f"{actual:.2%}",
+                "passed": actual >= target_value
+            })
+            
+    ow_targets = targets.get("overreliance_warning", {})
+    if ow_targets and traces_result:
+        if "precision" in ow_targets:
+            target_prec = ow_targets["precision"]
+            actual_prec = traces_result.get("precision", 0.0)
+            checks.append({
+                "name": "Overreliance Precision",
+                "target": f">={target_prec:.2%}",
+                "actual": f"{actual_prec:.2%}",
+                "passed": actual_prec >= target_prec
+            })
+        if "false_warning_rate_max" in ow_targets:
+            target_fwr = ow_targets["false_warning_rate_max"]
+            actual_fwr = traces_result.get("false_warning_rate", 0.0)
+            checks.append({
+                "name": "Overreliance False Warning Rate",
+                "target": f"<={target_fwr:.2%}",
+                "actual": f"{actual_fwr:.2%}",
+                "passed": actual_fwr <= target_fwr
+            })
+
     latency_targets = targets.get("latency_ms", {})
-    max_p50 = latency_targets.get("heuristic_p50_max", 2.0)
-    actual_p50 = results["metrics"]["latency_ms"]["p50"]
-    checks.append({
-        "name": "Latency p50",
-        "target": f"<={max_p50:.1f}ms",
-        "actual": f"{actual_p50:.2f}ms",
-        "passed": actual_p50 <= max_p50
-    })
+    for p_level in ["p50", "p95"]:
+        target_key = f"{mode}_{p_level}_max"
+        if target_key in latency_targets:
+            target_val = latency_targets[target_key]
+            actual_val = metrics["latency_ms"].get(p_level, 0.0)
+            checks.append({
+                "name": f"Latency {p_level.upper()} ({mode})",
+                "target": f"<={target_val:.1f}ms",
+                "actual": f"{actual_val:.2f}ms",
+                "passed": actual_val <= target_val
+            })
+            
+    cost_targets = targets.get("cost", {})
+    target_cost_key = f"max_tokens_per_{mode}"
+    if target_cost_key in cost_targets:
+        target_tokens = cost_targets[target_cost_key]
+        total_tokens = metrics.get("total_tokens_consumed", 0)
+        prompts_count = results.get("total_prompts", 1)
+        tokens_per_prompt = total_tokens / prompts_count if prompts_count > 0 else 0
+        checks.append({
+            "name": f"Tokens Per Prompt ({mode})",
+            "target": f"<={target_tokens:.1f}",
+            "actual": f"{tokens_per_prompt:.1f}",
+            "passed": tokens_per_prompt <= target_tokens
+        })
 
     return checks
 
@@ -330,8 +375,8 @@ def main():
         target_filename = os.path.basename(target_filename)
         
     if not os.path.exists(target_path):
-        target_path = os.path.join(os.path.dirname(__file__), "train.jsonl")
-        target_filename = "train.jsonl"
+        print(f"Error: Dataset not found at {target_path}")
+        sys.exit(1)
         
     target_results = evaluate_file(target_path, mode=args.mode, concurrency=args.concurrency)
     
@@ -343,7 +388,7 @@ def main():
     traces_result = evaluate_traces_file(traces_path) if os.path.exists(traces_path) else None
     
     targets_json_path = os.path.join(os.path.dirname(__file__), "targets.json")
-    checks = verify_against_targets(target_results, targets_json_path)
+    checks = verify_against_targets(target_results, targets_json_path, traces_result=traces_result)
     
     results_json_path = os.path.join(os.path.dirname(__file__), "results.json")
     with open(results_json_path, "w", encoding="utf-8") as f:

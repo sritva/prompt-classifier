@@ -321,7 +321,10 @@ def test_prompt_caching(mock_openai_class):
         res1 = classify_prompt("What is the capital of France?")
         res2 = classify_prompt("What is the capital of France?")
         
-    assert res1 == res2
+    assert res1.classification == res2.classification
+    assert res1.subtype == res2.subtype
+    assert res1.confidence == res2.confidence
+    assert res1.reasoning == res2.reasoning
     assert mock_client.beta.chat.completions.parse.call_count == 1
 
 @patch("app.classifier.OpenAI")
@@ -462,9 +465,11 @@ def test_cache_ttl_expiration():
     res1 = classify_prompt(test_prompt)
 
     model = os.getenv("CLASSIFIER_MODEL", "gpt-4o-mini")
+    # provider in heuristic mode when LLM_API_KEY is missing is "local" and model is "heuristic"
+    # The test doesn't mock LLM_API_KEY, so it falls back to local heuristic.
     import hashlib
     h = hashlib.sha256(test_prompt.strip().lower().encode("utf-8")).hexdigest()
-    cache_key = f"v{classifier_mod.CLASSIFIER_VERSION}:{model}:{h}"
+    cache_key = f"v{classifier_mod.CLASSIFIER_VERSION}:local:heuristic:{h}"
 
     assert cache_key in CLASSIFIER_CACHE
     stored_time, stored_res = CLASSIFIER_CACHE[cache_key]
@@ -490,7 +495,8 @@ def test_classifier_true_lru_cache_eviction(monkeypatch):
 
     def get_key(p):
         h = hashlib.sha256(p.strip().lower().encode("utf-8")).hexdigest()
-        return f"v{classifier_mod.CLASSIFIER_VERSION}:{os.getenv('CLASSIFIER_MODEL', 'gpt-4o-mini')}:{h}"
+        # provider is 'local', model is 'heuristic' because the test runs without API key mocked
+        return f"v{classifier_mod.CLASSIFIER_VERSION}:local:heuristic:{h}"
 
     key_a = get_key(prompt_a)
     key_b = get_key(prompt_b)

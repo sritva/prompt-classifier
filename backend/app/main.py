@@ -218,6 +218,11 @@ class ClassifyResponse(BaseModel):
     explanation_details: Optional[dict] = None
     reflection_prompt: Optional[str] = None
     is_heuristic: bool = False
+    model: Optional[str] = None
+    provider: Optional[str] = None
+    is_cached: bool = False
+    original_latency_ms: Optional[int] = None
+    original_total_tokens: Optional[int] = None
     session_summary: SessionSummary
 
 class SessionHistoryResponse(BaseModel):
@@ -288,6 +293,12 @@ async def classify(request: ClassifyRequest, db: Session = Depends(session_store
         total_tokens=result.total_tokens,
         explanation_details=json.dumps(result.explanation_details.model_dump()) if result.explanation_details else None,
         reflection_prompt=result.reflection_prompt,
+        model=result.model,
+        provider=result.provider,
+        is_heuristic=result.is_heuristic,
+        is_cached=result.is_cached,
+        original_latency_ms=result.original_latency_ms,
+        original_total_tokens=result.original_total_tokens,
         db=db
     )
     
@@ -308,7 +319,12 @@ async def classify(request: ClassifyRequest, db: Session = Depends(session_store
         total_tokens=record.total_tokens,
         explanation_details=json.loads(record.explanation_details) if record.explanation_details else None,
         reflection_prompt=record.reflection_prompt,
-        is_heuristic=result.is_heuristic,
+        is_heuristic=record.is_heuristic or False,
+        model=record.model,
+        provider=record.provider,
+        is_cached=record.is_cached or False,
+        original_latency_ms=record.original_latency_ms,
+        original_total_tokens=record.original_total_tokens,
         session_summary=summary
     )
 
@@ -336,7 +352,13 @@ async def get_session(session_id: str, db: Session = Depends(session_store.get_d
             "latency_ms": r.latency_ms,
             "total_tokens": r.total_tokens,
             "explanation_details": json.loads(r.explanation_details) if r.explanation_details else None,
-            "reflection_prompt": r.reflection_prompt
+            "reflection_prompt": r.reflection_prompt,
+            "is_heuristic": r.is_heuristic or False,
+            "model": r.model,
+            "provider": r.provider,
+            "is_cached": r.is_cached or False,
+            "original_latency_ms": r.original_latency_ms,
+            "original_total_tokens": r.original_total_tokens
         })
         
     return SessionHistoryResponse(
